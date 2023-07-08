@@ -9,3 +9,6 @@ edition = "2021"
 clap = { version = "4.3.11", features = ["derive"] }
 serde = "1.0.167"
 serde_yaml = "0.9.22"
+
+[dev-dependencies]
+insta = "1.30.0"

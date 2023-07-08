@@ -1,4 +1,9 @@
-use std::{error::Error, fs::File, io::BufReader, path::PathBuf};
+use std::{
+    error::Error,
+    fs::File,
+    io::BufReader,
+    path::{Path, PathBuf},
+};
 
 use clap::{Parser, Subcommand};
 use serde_yaml::Value;
@@ -20,23 +25,30 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     match cli.command {
         Command::Yaml { file } => {
-            let rdr = BufReader::new(File::open(&file)?);
-            let value: Value = serde_yaml::from_reader(rdr)?;
-
-            println!(
-                "type {} = {:#}",
-                file_name_to_type_name(
-                    file.file_stem()
-                        .expect("couldn't parse a filename from input")
-                        .to_str()
-                        .expect("path given should be in utf-8")
-                ),
-                introspect_typescript_types(value)
-            );
+            println!("{}", generate_typescript_types(&file)?);
         }
     };
 
     Ok(())
+}
+
+fn generate_typescript_types(file: &Path) -> Result<String, Box<dyn Error>> {
+    Ok(format!(
+        "type {} = {:#}",
+        file_name_to_type_name(
+            file.file_stem()
+                .expect("couldn't parse a filename from input")
+                .to_str()
+                .expect("path given should be in utf-8")
+        ),
+        introspect_typescript_types(parse_yaml(file)?)
+    ))
+}
+
+fn parse_yaml(file: &Path) -> Result<Value, Box<dyn Error>> {
+    let rdr = BufReader::new(File::open(file)?);
+    let value: Value = serde_yaml::from_reader(rdr)?;
+    Ok(value)
 }
 
 fn introspect_typescript_types(value: Value) -> String {
@@ -97,7 +109,11 @@ fn to_first_uppercase(n: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::file_name_to_type_name;
+    use std::path::Path;
+
+    use insta::assert_display_snapshot;
+
+    use crate::{file_name_to_type_name, generate_typescript_types};
 
     #[test]
     fn file_name_to_type_name_conversion() {
@@ -114,5 +130,11 @@ mod tests {
             file_name_to_type_name("test-config-tee.prod"),
             "TestConfigTeeProd".to_string()
         );
+    }
+
+    #[test]
+    fn introspect_typescript_types_gen() {
+        let output = generate_typescript_types(Path::new("src/test.yaml")).unwrap();
+        assert_display_snapshot!(output)
     }
 }
