@@ -1,7 +1,7 @@
 use std::{
     error::Error,
     fs::File,
-    io::BufReader,
+    io::{BufReader, Write},
     path::{Path, PathBuf},
 };
 
@@ -17,15 +17,27 @@ struct Cli {
 
 #[derive(Subcommand, Debug, Clone)]
 enum Command {
-    Yaml { file: PathBuf },
+    Yaml {
+        file: PathBuf,
+
+        #[arg(short)]
+        output_filename: Option<PathBuf>,
+    },
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::Yaml { file } => {
-            println!("{}", generate_typescript_types(&file)?);
+        Command::Yaml {
+            file,
+            output_filename,
+        } => {
+            let content = generate_typescript_types(&file)?;
+            let output_filename = output_filename.unwrap_or(file.with_extension("d.ts"));
+            let mut ofile = File::create(output_filename)?;
+
+            ofile.write_all(content.as_bytes())?;
         }
     };
 
