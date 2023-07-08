@@ -10,6 +10,7 @@ use serde_yaml::Value;
 
 #[derive(Parser, Debug)]
 #[clap(author)]
+/// Generate types from configuration files
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -17,9 +18,13 @@ struct Cli {
 
 #[derive(Subcommand, Debug, Clone)]
 enum Command {
+    /// Generate typescript types from yaml files.
     Yaml {
-        file: PathBuf,
+        /// Path to a yaml file.
+        source_file: PathBuf,
 
+        /// Override the output file's name. By default it is the source file's name
+        /// concatenated with ".d.ts"
         #[arg(short)]
         output_filename: Option<PathBuf>,
     },
@@ -30,11 +35,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     match cli.command {
         Command::Yaml {
-            file,
+            source_file,
             output_filename,
         } => {
-            let content = generate_typescript_types(&file)?;
-            let output_filename = output_filename.unwrap_or(file.with_extension("d.ts"));
+            let content = generate_typescript_types(&source_file)?;
+            let output_filename = output_filename.unwrap_or(source_file.with_extension("d.ts"));
             let mut ofile = File::create(output_filename)?;
 
             ofile.write_all(content.as_bytes())?;
