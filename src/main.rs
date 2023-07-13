@@ -6,6 +6,7 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
+use serde::Deserialize;
 use serde_yaml::Value;
 
 #[derive(Parser, Debug)]
@@ -50,22 +51,55 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn generate_typescript_types(file: &Path) -> Result<String, Box<dyn Error>> {
-    Ok(format!(
-        "type {} = {:#}",
-        file_name_to_type_name(
-            file.file_stem()
-                .expect("couldn't parse a filename from input")
-                .to_str()
-                .expect("path given should be in utf-8")
-        ),
-        introspect_typescript_types(parse_yaml(file)?)
-    ))
+    match parse_yaml(file)? {
+        Parsed::One(document) => Ok(format!(
+            "type {} = {:#}",
+            file_name_to_type_name(
+                file.file_stem()
+                    .expect("couldn't parse a filename from input")
+                    .to_str()
+                    .expect("path given should be in utf-8")
+            ),
+            introspect_typescript_types(document)
+        )),
+        Parsed::Many(documents) => Ok(format!(
+            "namespace {} {{ {:#} }}",
+            file_name_to_type_name(
+                file.file_stem()
+                    .expect("couldn't parse a filename from input")
+                    .to_str()
+                    .expect("path given should be in utf-8")
+            ),
+            documents
+                .into_iter()
+                .map(introspect_typescript_types)
+                .enumerate()
+                .map(|(idx, text)| format!("export interface Document{idx} {text}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        )),
+    }
 }
 
-fn parse_yaml(file: &Path) -> Result<Value, Box<dyn Error>> {
+enum Parsed {
+    One(Value),
+    Many(Vec<Value>),
+}
+
+fn parse_yaml(file: &Path) -> Result<Parsed, Box<dyn Error>> {
     let rdr = BufReader::new(File::open(file)?);
-    let value: Value = serde_yaml::from_reader(rdr)?;
-    Ok(value)
+    let mut values = vec![];
+
+    for doc in serde_yaml::Deserializer::from_reader(rdr) {
+        let value = Value::deserialize(doc)?;
+        values.push(value);
+    }
+
+    if values.len() == 1 {
+        return Ok(Parsed::One(values[0].clone()));
+    }
+
+    Ok(Parsed::Many(values))
 }
 
 fn introspect_typescript_types(value: Value) -> String {
@@ -152,6 +186,9 @@ mod tests {
     #[test]
     fn introspect_typescript_types_gen() {
         let output = generate_typescript_types(Path::new("src/test.yaml")).unwrap();
+        assert_display_snapshot!(output);
+
+        let output = generate_typescript_types(Path::new("src/test.multiple.yaml")).unwrap();
         assert_display_snapshot!(output)
     }
 }
