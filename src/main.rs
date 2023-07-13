@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use serde::Deserialize;
 use serde_yaml::Value;
 
@@ -29,6 +29,11 @@ enum Command {
         #[arg(short)]
         output_filename: Option<PathBuf>,
     },
+    /// Generate a completions file for a specified shell
+    Completion {
+        // The shell for which to generate completions
+        shell: clap_complete::Shell,
+    },
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -44,6 +49,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut ofile = File::create(output_filename)?;
 
             ofile.write_all(content.as_bytes())?;
+        }
+        Command::Completion { shell } => {
+            clap_complete::generate(shell, &mut Cli::command(), "ntro", &mut std::io::stdout())
         }
     };
 
