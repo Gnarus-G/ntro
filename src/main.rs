@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn generate_typescript_types(file: &Path) -> Result<String, Box<dyn Error>> {
     match parse_yaml(file)? {
         Parsed::One(document) => Ok(format!(
-            "interface {} {:#}",
+            "type {} = {:#}",
             file_name_to_type_name(
                 file.file_stem()
                     .expect("couldn't parse a filename from input")
@@ -82,7 +82,7 @@ fn generate_typescript_types(file: &Path) -> Result<String, Box<dyn Error>> {
                 .into_iter()
                 .map(introspect_typescript_types)
                 .enumerate()
-                .map(|(idx, text)| format!("export interface Document{idx} {text}"))
+                .map(|(idx, text)| format!("export type Document{idx} = {text}"))
                 .collect::<Vec<_>>()
                 .join("\n")
         )),
