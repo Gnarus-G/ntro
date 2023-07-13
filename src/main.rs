@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn generate_typescript_types(file: &Path) -> Result<String, Box<dyn Error>> {
     match parse_yaml(file)? {
         Parsed::One(document) => Ok(format!(
-            "type {} = {:#}",
+            "interface {} {:#}",
             file_name_to_type_name(
                 file.file_stem()
                     .expect("couldn't parse a filename from input")
