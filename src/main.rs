@@ -75,22 +75,34 @@ fn generate_typescript_types(file: &Path) -> Result<String, Box<dyn Error>> {
             ),
             introspect_typescript_types(document)
         )),
-        Parsed::Many(documents) => Ok(format!(
-            "declare namespace {} {{ {:#} }}",
-            file_name_to_type_name(
-                file.file_stem()
-                    .expect("couldn't parse a filename from input")
-                    .to_str()
-                    .expect("path given should be in utf-8")
-            ),
-            documents
+        Parsed::Many(documents) => {
+            let type_strings = documents
                 .into_iter()
                 .map(introspect_typescript_types)
-                .enumerate()
-                .map(|(idx, text)| format!("export type Document{idx} = {text}"))
-                .collect::<Vec<_>>()
-                .join("\n")
-        )),
+                .collect::<Vec<_>>();
+
+            let number_of_types = type_strings.len();
+
+            Ok(format!(
+                "declare namespace {} {{ {:#};\n export type All = [{:#}] }}",
+                file_name_to_type_name(
+                    file.file_stem()
+                        .expect("couldn't parse a filename from input")
+                        .to_str()
+                        .expect("path given should be in utf-8")
+                ),
+                type_strings
+                    .into_iter()
+                    .enumerate()
+                    .map(|(idx, text)| format!("export type Document{idx} = {text}"))
+                    .collect::<Vec<_>>()
+                    .join(";\n"),
+                (0..number_of_types)
+                    .map(|idx| format!("Document{idx}"))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ))
+        }
     }
 }
 
