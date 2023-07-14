@@ -24,10 +24,9 @@ enum Command {
         /// Path to a yaml file.
         source_file: PathBuf,
 
-        /// Override the output file's name. By default it is the source file's name
-        /// concatenated with ".d.ts"
+        /// Set the output directory, to where to save the *.d.ts file.
         #[arg(short)]
-        output_filename: Option<String>,
+        output_dir: Option<PathBuf>,
     },
     /// Generate a completions file for a specified shell
     Completion {
@@ -42,15 +41,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     match cli.command {
         Command::Yaml {
             source_file,
-            output_filename,
+            output_dir,
         } => {
             let content = generate_typescript_types(&source_file)?;
 
-            let output_path = output_filename.unwrap_or_else(|| {
-                return source_file.with_extension("d.ts").file_name().expect(
+            let output_path = output_dir
+                .unwrap_or_default()
+                .join(source_file.with_extension("d.ts").file_name().expect(
                 "the file path given should have had a filename for its yaml content to be parsed",
-            ).to_string_lossy().to_string();
-            });
+            ));
 
             let mut ofile = File::create(output_path)?;
 
