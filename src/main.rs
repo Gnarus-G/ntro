@@ -1,8 +1,7 @@
-mod yaml;
-
 use std::{error::Error, fs::File, io::Write, path::PathBuf};
 
 use clap::{CommandFactory, Parser, Subcommand};
+use ntro::{env, yaml};
 
 #[derive(Parser, Debug)]
 #[clap(author)]
@@ -20,6 +19,15 @@ enum Command {
         source_file: PathBuf,
 
         /// Set the output directory, to where to save the *.d.ts file.
+        #[arg(short)]
+        output_dir: Option<PathBuf>,
+    },
+    /// Generate typescript types from .env files.
+    Env {
+        /// Path to a yaml file.
+        source_files: Vec<PathBuf>,
+
+        /// Set the output directory, to where to save the env.d.ts file.
         #[arg(short)]
         output_dir: Option<PathBuf>,
     },
@@ -52,6 +60,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         Command::Completion { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "ntro", &mut std::io::stdout())
+        }
+        Command::Env {
+            source_files,
+            output_dir,
+        } => {
+            let content = env::generate_typescript_types(&source_files)?;
+
+            let output_path = output_dir.unwrap_or_default().join("env.d.ts");
+
+            let mut ofile = File::create(output_path)?;
+
+            ofile.write_all(content.as_bytes())?;
         }
     };
 

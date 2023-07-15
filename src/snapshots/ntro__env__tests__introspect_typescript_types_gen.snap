@@ -1,0 +1,28 @@
+---
+source: src/env.rs
+expression: output
+---
+
+declare global {
+    namespace NodeJs {
+        interface ProcessEnv {
+            
+             KEY: string | undefined
+
+             KEY_Value: string | undefined
+
+             NAME: string | undefined
+
+             NAME2: string | undefined
+
+             NAME5: string | undefined
+
+             keys: string | undefined
+
+             keys2: string | undefined
+
+             keys2Da: string | undefined
+        }
+    }
+}
+               
