@@ -30,18 +30,16 @@ pub fn generate_typescript_types(files: &[PathBuf]) -> Result<String, Box<dyn Er
 
     let output = format!(
         r#"
-declare global {{
-    namespace NodeJs {{
-        interface ProcessEnv {{
-            {}
-        }}
+declare namespace NodeJS {{
+    interface ProcessEnv {{
+        {}
     }}
 }}
                "#,
         vars.iter()
             .map(|v| format!(
                 r#"
-             {}: string | undefined"#,
+         {}: string | undefined"#,
                 v.key
             ))
             .collect::<Vec<_>>()
