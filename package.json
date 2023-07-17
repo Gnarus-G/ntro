@@ -1,0 +1,32 @@
+{
+  "name": "ntro",
+  "version": "0.1.0",
+  "description": "Introspect configuration files and output a typescript type declarations.",
+  "bin": {
+    "ntro": "./npm/run.js"
+  },
+  "files": [
+    "npm/**/*"
+  ],
+  "homepage": "https://github.com/Gnarus-G/ntro#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Gnarus-G/ntro"
+  },
+  "scripts": {
+    "postinstall": "node ./npm/install.js"
+  },
+  "keywords": [
+    "typescript",
+    "type-safety",
+    "configuration",
+    "code-gen",
+    "code-generation"
+  ],
+  "author": "Gnarus-G",
+  "license": "MIT",
+  "dependencies": {
+    "binary-install": "^1.1.0",
+    "tar": "^6.1.15"
+  }
+}
