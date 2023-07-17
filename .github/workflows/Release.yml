@@ -85,7 +85,7 @@ jobs:
             ${{ steps.compile.outputs.BUILT_ARCHIVES }}/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  publish:
+  publish-crate:
     name: Publish to crates.io
     runs-on: ubuntu-latest
     steps:
@@ -93,3 +93,21 @@ jobs:
       - run: cargo publish --token ${CRATES_TOKEN}
         env:
           CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+  publish-npm:
+    name: Publish to npmjs.com
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          registry-url: https://registry.npmjs.org/
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8.6.6
+          run_install: |
+            - recursive: true
+              args: [--frozen-lockfile]
+      - run: pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
