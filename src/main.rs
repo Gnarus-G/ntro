@@ -1,4 +1,10 @@
-use std::{error::Error, fs::File, io::Write, path::PathBuf};
+use std::{
+    error::Error,
+    fs::File,
+    io::Write,
+    path::{Path, PathBuf},
+    process,
+};
 
 use clap::{CommandFactory, Parser, Subcommand};
 use ntro::{env, yaml};
@@ -41,7 +47,7 @@ enum Command {
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
-    match cli.command {
+    let (output_path, content) = match cli.command {
         Command::Yaml {
             source_file,
             output_dir,
@@ -54,12 +60,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 "the file path given should have had a filename for its yaml content to be parsed",
             ));
 
-            let mut ofile = File::create(output_path)?;
-
-            ofile.write_all(content.as_bytes())?;
+            (output_path, content)
         }
         Command::Completion { shell } => {
-            clap_complete::generate(shell, &mut Cli::command(), "ntro", &mut std::io::stdout())
+            clap_complete::generate(shell, &mut Cli::command(), "ntro", &mut std::io::stdout());
+            return Ok(());
         }
         Command::Env {
             source_files,
@@ -69,11 +74,45 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             let output_path = output_dir.unwrap_or_default().join("env.d.ts");
 
-            let mut ofile = File::create(output_path)?;
-
-            ofile.write_all(content.as_bytes())?;
+            (output_path, content)
         }
     };
 
+    match prettier(content.as_bytes(), &output_path) {
+        Ok(content) => {
+            let mut ofile = File::create(&output_path)?;
+            ofile.write_all(&content)?;
+        }
+        Err(e) => {
+            eprint!("couldn't prettify output: {e}");
+        }
+    }
+
     Ok(())
+}
+
+fn prettier(file: &[u8], file_name: &Path) -> Result<Vec<u8>, Box<dyn Error>> {
+    let mut prettier = process::Command::new("prettierd")
+        .arg(file_name)
+        .stdin(process::Stdio::piped())
+        .stdout(process::Stdio::piped())
+        .spawn()?;
+
+    let mut prettier_stdin = prettier.stdin.take().ok_or("failed to open stdin")?;
+
+    prettier_stdin.write_all(file)?;
+
+    drop(prettier_stdin);
+
+    let output = prettier.wait_with_output()?;
+
+    if output.status.success() {
+        Ok(output.stdout)
+    } else {
+        Err(format!(
+            "{}",
+            String::from_utf8_lossy(&[output.stdout, output.stderr].concat())
+        )
+        .into())
+    }
 }
