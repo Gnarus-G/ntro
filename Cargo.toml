@@ -3,6 +3,8 @@ name = "ntro"
 version = "0.2.0"
 edition = "2021"
 description = "Introspect configuration files and output a typescript type declarations."
+homepage = "https://github.com/Gnarus-G/ntro"
+repository = "https://github.com/Gnarus-G/ntro"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
