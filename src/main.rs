@@ -8,6 +8,7 @@ use std::{
 
 use clap::{CommandFactory, Parser, Subcommand};
 use ntro::{env, yaml};
+use which::which;
 
 #[derive(Parser, Debug)]
 #[clap(author)]
@@ -78,7 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    match prettier(content.as_bytes(), &output_path) {
+    match prettify(content.as_bytes(), &output_path) {
         Ok(content) => {
             let mut ofile = File::create(&output_path)?;
             ofile.write_all(&content)?;
@@ -91,17 +92,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn prettier(file: &[u8], file_name: &Path) -> Result<Vec<u8>, Box<dyn Error>> {
-    let mut prettier = process::Command::new("prettierd")
-        .arg(file_name)
-        .stdin(process::Stdio::piped())
-        .stdout(process::Stdio::piped())
-        .spawn()?;
+fn prettify(file: &[u8], file_name: &Path) -> Result<Vec<u8>, Box<dyn Error>> {
+    let mut prettier = prettier(file_name)?;
 
     let mut prettier_stdin = prettier.stdin.take().ok_or("failed to open stdin")?;
 
     prettier_stdin.write_all(file)?;
 
+    // Finish (close file handle)
     drop(prettier_stdin);
 
     let output = prettier.wait_with_output()?;
@@ -115,4 +113,17 @@ fn prettier(file: &[u8], file_name: &Path) -> Result<Vec<u8>, Box<dyn Error>> {
         )
         .into())
     }
+}
+
+fn prettier(file_name: &Path) -> Result<process::Child, std::io::Error> {
+    let (exe, args) = which("prettierd")
+        .map(|_| ("prettierd", vec![]))
+        .unwrap_or(("npx", vec!["prettier", "--stdin-filepath"]));
+
+    process::Command::new(exe)
+        .args(args)
+        .arg(file_name)
+        .stdin(process::Stdio::piped())
+        .stdout(process::Stdio::piped())
+        .spawn()
 }
