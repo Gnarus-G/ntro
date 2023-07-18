@@ -1,13 +1,13 @@
+use anyhow::Result;
 use chumsky::prelude::*;
 use std::{
     collections::BTreeSet,
-    error::Error,
     fs::File,
     io::{BufReader, Read},
     path::PathBuf,
 };
 
-pub fn generate_typescript_types(files: &[PathBuf]) -> Result<String, Box<dyn Error>> {
+pub fn generate_typescript_types(files: &[PathBuf]) -> Result<String> {
     let vars = files
         .iter()
         .map(|file| {

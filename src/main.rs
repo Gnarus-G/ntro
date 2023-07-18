@@ -1,5 +1,6 @@
-use std::{error::Error, fs::File, io::Write, path::PathBuf};
+use std::{fs::File, io::Write, path::PathBuf};
 
+use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use ntro::{env, yaml};
 
@@ -41,7 +42,7 @@ enum Command {
     },
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let (output_path, content) = match cli.command {
@@ -75,15 +76,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    match prettify(content.as_bytes(), &output_path) {
-        Ok(content) => {
-            let mut ofile = File::create(&output_path)?;
-            ofile.write_all(&content)?;
-        }
-        Err(e) => {
-            eprint!("couldn't prettify output: {e}");
-        }
-    }
+    let content = prettify(content.as_bytes(), &output_path)?;
+
+    let mut ofile = File::create(&output_path)?;
+    ofile.write_all(&content)?;
 
     Ok(())
 }

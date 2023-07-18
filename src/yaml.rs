@@ -1,9 +1,10 @@
-use std::{error::Error, fs::File, io::BufReader, path::Path};
+use std::{fs::File, io::BufReader, path::Path};
 
+use anyhow::Result;
 use serde::Deserialize;
 use serde_yaml::Value;
 
-pub fn generate_typescript_types(file: &Path) -> Result<String, Box<dyn Error>> {
+pub fn generate_typescript_types(file: &Path) -> Result<String> {
     match parse_yaml(file)? {
         Parsed::One(document) => Ok(format!(
             "declare type {} = {:#}",
@@ -51,7 +52,7 @@ enum Parsed {
     Many(Vec<Value>),
 }
 
-fn parse_yaml(file: &Path) -> Result<Parsed, Box<dyn Error>> {
+fn parse_yaml(file: &Path) -> Result<Parsed> {
     let rdr = BufReader::new(File::open(file)?);
     let mut values = vec![];
 
