@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 use chumsky::prelude::*;
 use std::{
     collections::BTreeSet,
@@ -8,6 +8,19 @@ use std::{
 };
 
 pub fn generate_typescript_types(files: &[PathBuf]) -> Result<String> {
+    let parse = |text, file_name| {
+        parser().parse(text).map_err(|err| {
+            anyhow!(
+                "failed to parse {:?}: {}",
+                file_name,
+                err.iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            )
+        })
+    };
+
     let vars = files
         .iter()
         .map(|file| {
@@ -17,11 +30,12 @@ pub fn generate_typescript_types(files: &[PathBuf]) -> Result<String> {
                     let mut buf = String::new();
                     rdr.read_to_string(&mut buf).map(|_| buf)
                 })
-                .map(|text| parser().parse(text).unwrap())
+                .context(format!("failed read {file:?}"))
+                .and_then(|text| parse(text, file))
         })
         .filter_map(|result| {
-            if result.is_err() {
-                eprintln!("{result:?}");
+            if let Err(e) = &result {
+                eprintln!("{e:?}");
             }
             result.ok()
         })
