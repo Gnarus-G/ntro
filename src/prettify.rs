@@ -23,7 +23,8 @@ pub fn prettify(file: &[u8], file_name: &Path) -> anyhow::Result<Vec<u8>> {
         Err(anyhow!(
             "{}",
             String::from_utf8_lossy(&[output.stdout, output.stderr].concat())
-        ))
+        )
+        .context("exited prettier execution with a fail status"))
     }
 }
 
@@ -71,14 +72,14 @@ impl PackageManager {
             return None;
         };
 
-        if dir.join("pnpm-lock.yaml").is_file() {
+        if dir.join("pnpm-lock.yaml").is_file() && which("pnpm").is_ok() {
             return Some(Self::Pnpm);
         }
-        if dir.join("yarn.lock").is_file() {
-            return Some(Self::Yarn);
-        }
-        if dir.join("package-lock.json").is_file() {
+        if dir.join("package-lock.json").is_file() && which("npm").is_ok() {
             return Some(Self::Npm);
+        }
+        if dir.join("yarn.lock").is_file() && which("yarn").is_ok() {
+            return Some(Self::Yarn);
         }
 
         None
