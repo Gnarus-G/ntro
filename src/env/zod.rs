@@ -1,22 +1,17 @@
-use anyhow::{anyhow, Context, Result};
 use chumsky::prelude::*;
 use std::{
-    collections::BTreeSet,
     fs::File,
     io::{BufReader, Read},
     path::PathBuf,
 };
 
-use self::parse::parser;
+use anyhow::{anyhow, Context, Result};
 
-mod parse;
+use super::parse::parser_with_type_hint;
 
-mod typehint_parser;
-pub mod zod;
-
-pub fn generate_typescript_types(files: &[PathBuf]) -> Result<String> {
+pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
     let parse = |text, file_name| {
-        parser().parse(text).map_err(|err| {
+        parser_with_type_hint().parse(text).map_err(|err| {
             anyhow!(
                 "failed to parse {:?}: {}",
                 file_name,
@@ -47,22 +42,39 @@ pub fn generate_typescript_types(files: &[PathBuf]) -> Result<String> {
             result.ok()
         })
         .flatten()
-        .collect::<BTreeSet<_>>();
+        .collect::<Vec<_>>();
 
     let output = format!(
         r#"
-declare namespace NodeJS {{
-    interface ProcessEnv {{
-        {}
-    }}
-}}
+import z from "zod";
+
+const envSchema = z.object({{
+{}
+}})
+
+export env = envSchema.parse({{
+{}
+}})
                "#,
         vars.iter()
             .map(|var| format!(
-                r#"
-         {}: string | undefined"#,
-                var
+                r#"    {}: {},"#,
+                var.key,
+                match &var.type_hint {
+                    Some(th) => match th {
+                        super::typehint_parser::TypeHint::String => "z.string()".to_string(),
+                        super::typehint_parser::TypeHint::Number => "z.number()".to_string(),
+                        super::typehint_parser::TypeHint::Boolean => "z.boolean()".to_string(),
+                        super::typehint_parser::TypeHint::Union(values) =>
+                            format!("z.enum([{}])", values.join(",")),
+                    },
+                    None => "z.string()".to_string(),
+                }
             ))
+            .collect::<Vec<_>>()
+            .join("\n"),
+        vars.iter()
+            .map(|var| format!("   {}: process.env.{},", var.key, var.key))
             .collect::<Vec<_>>()
             .join("\n")
     );
@@ -76,11 +88,11 @@ mod tests {
 
     use insta::assert_display_snapshot;
 
-    use crate::env::generate_typescript_types;
+    use crate::env::zod::generate_zod_schema;
 
     #[test]
-    fn introspect_typescript_types_gen() {
-        let output = generate_typescript_types(&[
+    fn zod_schema_gen() {
+        let output = generate_zod_schema(&[
             PathBuf::from("src/.env.test"),
             PathBuf::from("src/.env.test2"),
         ])
