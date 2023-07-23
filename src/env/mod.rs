@@ -7,6 +7,8 @@ use std::{
     path::PathBuf,
 };
 
+mod typehint_parser;
+
 pub fn generate_typescript_types(files: &[PathBuf]) -> Result<String> {
     let parse = |text, file_name| {
         parser().parse(text).map_err(|err| {
