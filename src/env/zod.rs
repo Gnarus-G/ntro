@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 
-use super::parse::parser_with_type_hint;
+use super::parse::{parser_with_type_hint, Variable};
 
 pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
     let parse = |text, file_name| {
@@ -44,36 +44,65 @@ pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
         .flatten()
         .collect::<Vec<_>>();
 
+    let next_public_vars = vars.iter().filter(|v| v.is_public()).collect::<Vec<_>>();
+    let other_vars = vars.iter().filter(|v| !v.is_public()).collect::<Vec<_>>();
+
+    let to_field_schema = |var: &&Variable| -> String {
+        format!(
+            r#"    {}: {},"#,
+            var.key,
+            match &var.type_hint {
+                Some(th) => match th {
+                    super::typehint_parser::TypeHint::String => "z.coerce.string()".to_string(),
+                    super::typehint_parser::TypeHint::Number => "z.coerce.number()".to_string(),
+                    super::typehint_parser::TypeHint::Boolean => "z.coerce.boolean()".to_string(),
+                    super::typehint_parser::TypeHint::Union(values) =>
+                        format!("z.enum([{}])", values.join(",")),
+                },
+                None => "z.string()".to_string(),
+            }
+        )
+    };
+
     let output = format!(
         r#"
 import z from "zod";
 
-const envSchema = z.object({{
+const clientEnvSchema = z.object({{
 {}
 }})
 
-export const env = envSchema.parse({{
+const serverEnvSchema = z.object({{
 {}
 }})
+
+export const clientEnv = clientEnvSchema.parse({{
+{}
+}})
+
+export const serverEnv = serverEnvSchema.parse({{
+{}
+}})
+
+export const env = {{...clientEnvSchema, ...serverEnvSchema}}
                "#,
-        vars.iter()
-            .map(|var| format!(
-                r#"    {}: {},"#,
-                var.key,
-                match &var.type_hint {
-                    Some(th) => match th {
-                        super::typehint_parser::TypeHint::String => "z.string()".to_string(),
-                        super::typehint_parser::TypeHint::Number => "z.number()".to_string(),
-                        super::typehint_parser::TypeHint::Boolean => "z.boolean()".to_string(),
-                        super::typehint_parser::TypeHint::Union(values) =>
-                            format!("z.enum([{}])", values.join(",")),
-                    },
-                    None => "z.string()".to_string(),
-                }
-            ))
+        next_public_vars
+            .iter()
+            .map(to_field_schema)
             .collect::<Vec<_>>()
             .join("\n"),
-        vars.iter()
+        other_vars
+            .iter()
+            .map(to_field_schema)
+            .collect::<Vec<_>>()
+            .join("\n"),
+        next_public_vars
+            .iter()
+            .map(|var| format!("   {}: process.env.{},", var.key, var.key))
+            .collect::<Vec<_>>()
+            .join("\n"),
+        other_vars
+            .iter()
             .map(|var| format!("   {}: process.env.{},", var.key, var.key))
             .collect::<Vec<_>>()
             .join("\n")

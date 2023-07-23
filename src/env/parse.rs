@@ -22,6 +22,12 @@ pub struct Variable {
     pub key: String,
 }
 
+impl Variable {
+    pub fn is_public(&self) -> bool {
+        self.key.starts_with("NEXT_PUBLIC_")
+    }
+}
+
 pub fn parser_with_type_hint() -> impl Parser<char, Vec<Variable>, Error = Simple<char>> {
     let comment = just('#')
         .then(take_until(text::newline()))
