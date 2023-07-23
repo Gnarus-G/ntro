@@ -1,0 +1,7 @@
+---
+source: src/dotenv/typehint_parser.rs
+expression: "Parser::new(\"@type string\").parse()"
+---
+Some(
+    String,
+)

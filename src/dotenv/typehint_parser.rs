@@ -278,7 +278,7 @@ impl<'source> Parser<'source> {
 mod tests {
     use insta::assert_debug_snapshot;
 
-    use crate::env::typehint_parser::{Lexer, Parser};
+    use crate::dotenv::typehint_parser::{Lexer, Parser};
 
     #[test]
     fn lexing_type_hints() {

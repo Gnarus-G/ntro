@@ -1,2 +1,2 @@
-pub mod env;
+pub mod dotenv;
 pub mod yaml;

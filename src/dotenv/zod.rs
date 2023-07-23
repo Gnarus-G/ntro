@@ -157,13 +157,13 @@ mod tests {
 
     use insta::assert_display_snapshot;
 
-    use crate::env::zod::generate_zod_schema;
+    use crate::dotenv::zod::generate_zod_schema;
 
     #[test]
     fn zod_schema_gen() {
         let output = generate_zod_schema(&[
-            PathBuf::from("src/.env.test"),
-            PathBuf::from("src/.env.test2"),
+            PathBuf::from("src/dotenv/.env.test"),
+            PathBuf::from("src/dotenv/.env.test2"),
         ])
         .unwrap();
         assert_display_snapshot!(output);

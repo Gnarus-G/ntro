@@ -2,7 +2,7 @@ use std::{fs::File, io::Write, path::PathBuf};
 
 use anyhow::{Ok, Result};
 use clap::{CommandFactory, Parser, Subcommand};
-use ntro::{env, yaml};
+use ntro::{dotenv, yaml};
 
 mod prettify;
 use prettify::prettify;
@@ -27,7 +27,7 @@ enum Command {
         output_dir: Option<PathBuf>,
     },
     /// Generate typescript types from .env files.
-    Env {
+    Dotenv {
         /// Path to a yaml file.
         source_files: Vec<PathBuf>,
 
@@ -67,19 +67,19 @@ fn main() -> Result<()> {
         Command::Completion { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "ntro", &mut std::io::stdout());
         }
-        Command::Env {
+        Command::Dotenv {
             source_files,
             output_dir,
             zod,
         } => {
             if zod {
-                let content = env::zod::generate_zod_schema(&source_files)?;
+                let content = dotenv::zod::generate_zod_schema(&source_files)?;
                 let output_path = output_dir.clone().unwrap_or_default().join("env.parsed.ts");
 
                 write_output(output_path, content)?;
             }
 
-            let content = env::generate_typescript_types(&source_files)?;
+            let content = dotenv::generate_typescript_types(&source_files)?;
             let output_path = output_dir.unwrap_or_default().join("env.d.ts");
 
             write_output(output_path, content)?;

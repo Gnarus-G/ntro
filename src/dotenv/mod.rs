@@ -76,13 +76,13 @@ mod tests {
 
     use insta::assert_display_snapshot;
 
-    use crate::env::generate_typescript_types;
+    use crate::dotenv::generate_typescript_types;
 
     #[test]
     fn introspect_typescript_types_gen() {
         let output = generate_typescript_types(&[
-            PathBuf::from("src/.env.test"),
-            PathBuf::from("src/.env.test2"),
+            PathBuf::from("src/dotenv/.env.test"),
+            PathBuf::from("src/dotenv/.env.test2"),
         ])
         .unwrap();
         assert_display_snapshot!(output);

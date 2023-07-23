@@ -1,0 +1,26 @@
+---
+source: src/dotenv/mod.rs
+expression: output
+---
+
+declare namespace NodeJS {
+    interface ProcessEnv {
+        
+         KEY: string | undefined
+
+         KEY_Value: string | undefined
+
+         NAME: string | undefined
+
+         NAME2: string | undefined
+
+         NAME5: string | undefined
+
+         keys: string | undefined
+
+         keys2: string | undefined
+
+         keys2Da: string | undefined
+    }
+}
+               
