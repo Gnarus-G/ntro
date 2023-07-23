@@ -68,23 +68,28 @@ pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
         r#"
 import z from "zod";
 
-const clientEnvSchema = z.object({{
+const clientEnvSchemas = {{
 {}
-}})
+}}
 
-const serverEnvSchema = z.object({{
+const serverEnvSchemas = {{
 {}
-}})
+}}
 
-export const clientEnv = clientEnvSchema.parse({{
 {}
-}})
 
-export const serverEnv = serverEnvSchema.parse({{
+const processEnv = {{
 {}
-}})
+}}
 
-export const env = {{...clientEnvSchema, ...serverEnvSchema}}
+class BadEnvError extends Error {{
+    constructor(public message: string, public cause: unknown){{
+        super(message)
+        if (cause instanceof Error) {{
+          this.message = [message, cause].join("\n ↳ ");
+        }}
+    }}
+}}
                "#,
         next_public_vars
             .iter()
@@ -96,20 +101,55 @@ export const env = {{...clientEnvSchema, ...serverEnvSchema}}
             .map(to_field_schema)
             .collect::<Vec<_>>()
             .join("\n"),
-        next_public_vars
-            .iter()
+        JS_PROXY_DEFS,
+        vars.iter()
             .map(|var| format!("   {}: process.env.{},", var.key, var.key))
             .collect::<Vec<_>>()
             .join("\n"),
-        other_vars
-            .iter()
-            .map(|var| format!("   {}: process.env.{},", var.key, var.key))
-            .collect::<Vec<_>>()
-            .join("\n")
     );
 
     Ok(output)
 }
+
+const JS_PROXY_DEFS: &str = r#"
+export const clientEnv: z.infer<z.ZodObject<typeof clientEnvSchemas>> =
+  new Proxy({} as any, {
+    get(_, prop: string) {
+      try {
+        if (prop in clientEnvSchemas) {
+          return clientEnvSchemas[prop as keyof typeof clientEnvSchemas].parse(
+            processEnv[prop as keyof typeof processEnv],
+            { path: [prop] }
+          );
+        }
+        throw new Error(
+          `${prop} is not defined for client side environment variables.`
+        );
+      } catch (e) {
+        throw new BadEnvError(`failed to read ${prop} from proccess.env`, e);
+      }
+    },
+  });
+
+export const serverEnv: z.infer<z.ZodObject<typeof serverEnvSchemas>> =
+  new Proxy({} as any, {
+    get(_, prop: string) {
+      try {
+        if (prop in serverEnvSchemas) {
+          return serverEnvSchemas[prop as keyof typeof serverEnvSchemas].parse(
+            processEnv[prop as keyof typeof processEnv],
+            { path: [prop] }
+          );
+        }
+        throw new Error(
+          `${prop} is not defined for server side environment variables.`
+        );
+      } catch (e) {
+        throw new BadEnvError(`failed to read ${prop} from proccess.env`, e);
+      }
+    },
+  });
+"#;
 
 #[cfg(test)]
 mod tests {
