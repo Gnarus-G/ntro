@@ -1,18 +1,20 @@
 #[derive(Debug)]
-pub enum TypHint {
+pub enum TypeHint {
     String,
     Number,
     Boolean,
     Union(Vec<String>),
 }
 
-// impl From<&str> for Option<TypHint> {
-//     fn from(value: &str) -> Self {
-//         let mut lexer = Lexer::new(value);
-//
-//
-//     }
-// }
+pub trait ParseTyeHint {
+    fn into_type_hint(self) -> Option<TypeHint>;
+}
+
+impl ParseTyeHint for &str {
+    fn into_type_hint(self) -> Option<TypeHint> {
+        Parser::new(self).parse()
+    }
+}
 
 #[derive(PartialEq, Debug)]
 enum TokenKind {
@@ -207,17 +209,91 @@ impl<'source> Iterator for Lexer<'source> {
     }
 }
 
+struct Parser<'source> {
+    lexer: Lexer<'source>,
+    token: Token<'source>,
+    peeked: Option<Token<'source>>,
+}
+
+impl<'source> Parser<'source> {
+    pub fn new(code: &'source str) -> Self {
+        let mut lexer = Lexer::new(code);
+        Self {
+            peeked: None,
+            token: lexer.next_token(),
+            lexer,
+        }
+    }
+
+    fn next_token(&mut self) -> &Token<'source> {
+        self.token = match self.peeked.take() {
+            Some(t) => t,
+            None => self.lexer.next_token(),
+        };
+
+        &self.token
+    }
+
+    // fn peek_token(&mut self) -> &Token<'source> {
+    //     self.peeked.get_or_insert_with(|| self.lexer.next_token())
+    // }
+
+    pub fn parse(&mut self) -> Option<TypeHint> {
+        if self.token.kind != TokenKind::Keyword {
+            return None;
+        }
+
+        while self.token.kind != TokenKind::Eof {
+            match self.token.kind {
+                TokenKind::StringType => return Some(TypeHint::String),
+                TokenKind::NumberType => return Some(TypeHint::Number),
+                TokenKind::BooleanType => return Some(TypeHint::Boolean),
+                TokenKind::StringLiteral => {
+                    let mut union = vec![self.token.text.to_string()];
+
+                    while self.next_token().kind == TokenKind::Pipe
+                        && self.token.kind != TokenKind::Eof
+                    {
+                        // just ignore any bunch of consecutive pipes
+                        while self.next_token().kind == TokenKind::Pipe {}
+                        union.push(self.token.text.to_string());
+                    }
+
+                    return Some(TypeHint::Union(union));
+                }
+                TokenKind::Eof => return None,
+                TokenKind::Pipe => {}
+                TokenKind::Illegal => {}
+                TokenKind::Keyword => {}
+            }
+
+            self.next_token();
+        }
+
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use insta::assert_debug_snapshot;
 
-    use crate::env::typehint_parser::Lexer;
+    use crate::env::typehint_parser::{Lexer, Parser};
 
     #[test]
-    fn string_type_declaration() {
+    fn lexing_type_hints() {
         assert_debug_snapshot!(Lexer::new("@type string").collect::<Vec<_>>());
         assert_debug_snapshot!(Lexer::new("@type number").collect::<Vec<_>>());
         assert_debug_snapshot!(Lexer::new("@type boolean").collect::<Vec<_>>());
         assert_debug_snapshot!(Lexer::new("@type 'qa' | 'dev' | 'prod'").collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn parse_type_hints() {
+        assert_debug_snapshot!(Parser::new("@type string").parse());
+        assert_debug_snapshot!(Parser::new("@type number").parse());
+        assert_debug_snapshot!(Parser::new("@type boolean").parse());
+        assert_debug_snapshot!(Parser::new("@type 'qa' | 'dev' | 'prod'").parse());
+        assert_debug_snapshot!(Parser::new("@type 'qa' || 'dev' ||| | 'prod' | || 'test'").parse());
     }
 }

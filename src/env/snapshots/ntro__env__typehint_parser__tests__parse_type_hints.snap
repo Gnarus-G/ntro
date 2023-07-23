@@ -1,0 +1,7 @@
+---
+source: src/env/typehint_parser.rs
+expression: "Parser::new(\"@type string\").parse()"
+---
+Some(
+    String,
+)
