@@ -52,7 +52,7 @@ const envSchema = z.object({{
 {}
 }})
 
-export env = envSchema.parse({{
+export const env = envSchema.parse({{
 {}
 }})
                "#,

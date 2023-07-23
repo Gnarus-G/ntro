@@ -1,6 +1,6 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use clap::{CommandFactory, Parser, Subcommand};
 use ntro::{env, yaml};
 
@@ -34,6 +34,10 @@ enum Command {
         /// Set the output directory, to where to save the env.d.ts file.
         #[arg(short)]
         output_dir: Option<PathBuf>,
+
+        /// Generate a typescript module implementing a zod schema for env variables
+        #[arg(short, long)]
+        zod: bool,
     },
     /// Generate a completions file for a specified shell
     Completion {
@@ -45,7 +49,7 @@ enum Command {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let (output_path, content) = match cli.command {
+    match cli.command {
         Command::Yaml {
             source_file,
             output_dir,
@@ -58,24 +62,34 @@ fn main() -> Result<()> {
                 "the file path given should have had a filename for its yaml content to be parsed",
             ));
 
-            (output_path, content)
+            write_output(output_path, content)?;
         }
         Command::Completion { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "ntro", &mut std::io::stdout());
-            return Ok(());
         }
         Command::Env {
             source_files,
             output_dir,
+            zod,
         } => {
-            let content = env::generate_typescript_types(&source_files)?;
+            if zod {
+                let content = env::zod::generate_zod_schema(&source_files)?;
+                let output_path = output_dir.clone().unwrap_or_default().join("env.parsed.ts");
 
+                write_output(output_path, content)?;
+            }
+
+            let content = env::generate_typescript_types(&source_files)?;
             let output_path = output_dir.unwrap_or_default().join("env.d.ts");
 
-            (output_path, content)
+            write_output(output_path, content)?;
         }
     };
 
+    Ok(())
+}
+
+fn write_output(output_path: PathBuf, content: String) -> Result<()> {
     let content = prettify(content.as_bytes(), &output_path)?;
 
     let mut ofile = File::create(&output_path)?;
