@@ -38,17 +38,27 @@ export const env: z.infer<z.ZodObject<typeof serverEnvSchemas>> = new Proxy(
   }
 );
 
+const cache: Record<string, unknown> = {};
+
 function lookupEnv<T extends Record<string, ZodTypeAny>>(
   prop: string,
   parsers: T,
-  onNotFound: VoidFunction
+  onNotFound: () => never
 ) {
+  if (prop in cache) {
+    return cache[prop];
+  }
+
   try {
     if (prop in parsers) {
-      return parsers[prop as keyof typeof parsers].parse(
+      const parsed = parsers[prop as keyof typeof parsers].parse(
         processEnv[prop as keyof typeof processEnv],
         { path: [prop] }
       );
+
+      cache[prop] = parsed;
+
+      return parsed;
     }
     onNotFound();
   } catch (e) {
