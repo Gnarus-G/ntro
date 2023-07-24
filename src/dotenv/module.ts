@@ -1,0 +1,66 @@
+import z, { ZodTypeAny } from "zod";
+
+const clientEnvSchemas = {
+  dummy: z.string(),
+};
+const serverEnvSchemas = {
+  dummy: z.string(),
+};
+
+const processEnv = {};
+
+/* --- MAIN IMPLEMENTATION BELOW --- */
+
+export const clientEnv: z.infer<z.ZodObject<typeof clientEnvSchemas>> =
+  new Proxy({} as any, {
+    get(_, prop: string) {
+      return lookupEnv(prop, clientEnvSchemas, () => {
+        throw new Error(
+          `${prop} is not defined for client side environment variables.`
+        );
+      });
+    },
+  });
+
+export const env: z.infer<z.ZodObject<typeof serverEnvSchemas>> = new Proxy(
+  {} as any,
+  {
+    get(_, prop: string) {
+      if (prop.startsWith("NEXT_PUBLIC_")) {
+        return Reflect.get(clientEnv, prop);
+      }
+      return lookupEnv(prop, serverEnvSchemas, () => {
+        throw new Error(
+          `${prop} is not defined for server side environment variables.`
+        );
+      });
+    },
+  }
+);
+
+function lookupEnv<T extends Record<string, ZodTypeAny>>(
+  prop: string,
+  parsers: T,
+  onNotFound: VoidFunction
+) {
+  try {
+    if (prop in parsers) {
+      return parsers[prop as keyof typeof parsers].parse(
+        processEnv[prop as keyof typeof processEnv],
+        { path: [prop] }
+      );
+    }
+    onNotFound();
+  } catch (e) {
+    throw new BadEnvError(`failed to read ${prop} from proccess.env`, e);
+  }
+}
+
+class BadEnvError extends Error {
+  constructor(public message: string, public cause: unknown) {
+    super(message);
+    if (cause instanceof Error) {
+      this.message = [message, cause].join("\n ↳ ");
+    }
+  }
+}
