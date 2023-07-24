@@ -1,6 +1,6 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use ntro::{dotenv, yaml};
 
@@ -77,6 +77,10 @@ fn main() -> Result<()> {
                 let output_path = output_dir.clone().unwrap_or_default().join("env.parsed.ts");
 
                 write_output(output_path, content)?;
+
+                if let Err(e) = dotenv::zod::npm_install() {
+                    eprintln!("{e}");
+                }
             }
 
             let content = dotenv::generate_typescript_types(&source_files)?;

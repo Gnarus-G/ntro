@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context};
+use ntro::pm::PackageManager;
 use std::{io::Write, path::Path, process};
 
 use which::which;
@@ -29,10 +30,10 @@ pub fn prettify(file: &[u8], file_name: &Path) -> anyhow::Result<Vec<u8>> {
 }
 
 fn prettier(file_name: &Path) -> anyhow::Result<process::Child> {
-    let pm = PackageManager::get();
+    let pm = PackageManager::from_current_project();
 
     let package_manager_executable = pm
-        .map(PackageManager::into_exe_name)
+        .map(PackageManager::into_executor_name)
         .context("no package manager detected, neither pnpm, npm, nor yarn")
         .map(|exe| (exe, vec!["prettier", "--stdin-filepath"]));
 
@@ -57,39 +58,4 @@ fn prettier(file_name: &Path) -> anyhow::Result<process::Child> {
         })?;
 
     Ok(child)
-}
-
-#[derive(Debug)]
-enum PackageManager {
-    Pnpm,
-    Yarn,
-    Npm,
-}
-
-impl PackageManager {
-    fn get() -> Option<Self> {
-        let Ok(dir) = std::env::current_dir() else {
-            return None;
-        };
-
-        if dir.join("pnpm-lock.yaml").is_file() && which("pnpm").is_ok() {
-            return Some(Self::Pnpm);
-        }
-        if dir.join("package-lock.json").is_file() && which("npm").is_ok() {
-            return Some(Self::Npm);
-        }
-        if dir.join("yarn.lock").is_file() && which("yarn").is_ok() {
-            return Some(Self::Yarn);
-        }
-
-        None
-    }
-
-    fn into_exe_name(self) -> &'static str {
-        match self {
-            PackageManager::Pnpm => "pnpx",
-            PackageManager::Yarn => "yarn",
-            PackageManager::Npm => "npx",
-        }
-    }
 }

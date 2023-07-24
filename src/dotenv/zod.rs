@@ -1,11 +1,15 @@
 use chumsky::prelude::*;
+use serde_json::Value;
 use std::{
     fs::File,
     io::{BufReader, Read},
     path::PathBuf,
+    process::Command,
 };
 
 use anyhow::{anyhow, Context, Result};
+
+use crate::pm::PackageManager;
 
 use super::parse::{parser_with_type_hint, Variable};
 
@@ -150,6 +154,50 @@ export const serverEnv: z.infer<z.ZodObject<typeof serverEnvSchemas>> =
     },
   });
 "#;
+
+pub fn npm_install() -> Result<()> {
+    let package_info: Value = File::open("./package.json")
+        .context("couldn't open package.json")
+        .map(BufReader::new)
+        .and_then(|reader| serde_json::from_reader(reader).context("failed to parse package.json"))
+        .context("failed to read package.json")?;
+
+    if package_info
+        .get("dependencies")
+        .and_then(|deps| deps.get("zod"))
+        .is_some()
+    {
+        return Ok(());
+    }
+
+    eprintln!("Installing zod");
+    let out = PackageManager::from_current_project()
+        .ok_or(anyhow!("couldn't get package manager from current project"))
+        .or(PackageManager::from_global())
+        .map(|pm| match pm {
+            PackageManager::Pnpm => ("pnpm", "add"),
+            PackageManager::Yarn => ("yarn", "add"),
+            PackageManager::Npm => ("npm", "i"),
+        })
+        .and_then(|(exe, arg)| {
+            Command::new(exe)
+                .arg(arg)
+                .arg("zod")
+                .output()
+                .with_context(|| {
+                    format!("failed to execute installation with package manager: {exe}")
+                })
+        })?;
+
+    if !out.status.success() {
+        return Err(anyhow!(
+            "installation failed with exit code {:?}",
+            out.status.code()
+        ));
+    }
+
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {
