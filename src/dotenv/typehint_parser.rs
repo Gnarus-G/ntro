@@ -31,6 +31,8 @@ enum TokenKind {
 #[derive(Debug)]
 struct Token<'source> {
     kind: TokenKind,
+    /// I might still want to type check and handle errors later
+    #[allow(dead_code)]
     start: usize,
     text: &'source str,
 }
