@@ -3,13 +3,14 @@ source: src/dotenv/zod.rs
 expression: output
 ---
 
-import z from "zod";
+import z, { ZodTypeAny } from "zod";
 
 const clientEnvSchemas = {
 
 }
 
 const serverEnvSchemas = {
+    ...clientEnvSchemas,
     NAME: z.string(),
     NAME2: z.enum(['a','b']),
     KEY: z.string(),
@@ -24,41 +25,66 @@ const serverEnvSchemas = {
 export const clientEnv: z.infer<z.ZodObject<typeof clientEnvSchemas>> =
   new Proxy({} as any, {
     get(_, prop: string) {
-      try {
-        if (prop in clientEnvSchemas) {
-          return clientEnvSchemas[prop as keyof typeof clientEnvSchemas].parse(
-            processEnv[prop as keyof typeof processEnv],
-            { path: [prop] }
-          );
-        }
+      return lookupEnv(prop, clientEnvSchemas, () => {
         throw new Error(
           `${prop} is not defined for client side environment variables.`
         );
-      } catch (e) {
-        throw new BadEnvError(`failed to read ${prop} from proccess.env`, e);
-      }
+      });
     },
   });
 
-export const serverEnv: z.infer<z.ZodObject<typeof serverEnvSchemas>> =
-  new Proxy({} as any, {
+export const env: z.infer<z.ZodObject<typeof serverEnvSchemas>> = new Proxy(
+  {} as any,
+  {
     get(_, prop: string) {
-      try {
-        if (prop in serverEnvSchemas) {
-          return serverEnvSchemas[prop as keyof typeof serverEnvSchemas].parse(
-            processEnv[prop as keyof typeof processEnv],
-            { path: [prop] }
-          );
-        }
+      if (prop.startsWith("NEXT_PUBLIC_")) {
+        return Reflect.get(clientEnv, prop);
+      }
+      return lookupEnv(prop, serverEnvSchemas, () => {
         throw new Error(
           `${prop} is not defined for server side environment variables.`
         );
-      } catch (e) {
-        throw new BadEnvError(`failed to read ${prop} from proccess.env`, e);
-      }
+      });
     },
-  });
+  }
+);
 
+const cache: Record<string, unknown> = {};
+
+function lookupEnv<T extends Record<string, ZodTypeAny>>(
+  prop: string,
+  parsers: T,
+  onNotFound: () => never
+) {
+  if (prop in cache) {
+    return cache[prop];
+  }
+
+  try {
+    if (prop in parsers) {
+      const parsed = parsers[prop as keyof typeof parsers].parse(
+        processEnv[prop as keyof typeof processEnv],
+        { path: [prop] }
+      );
+
+      cache[prop] = parsed;
+
+      return parsed;
+    }
+    onNotFound();
+  } catch (e) {
+    throw new BadEnvError(`failed to read ${prop} from proccess.env`, e);
+  }
+}
+
+class BadEnvError extends Error {
+  constructor(public message: string, public cause: unknown) {
+    super(message);
+    if (cause instanceof Error) {
+      this.message = [message, cause].join("\n ↳ ");
+    }
+  }
+}
 
 const processEnv = {
    NAME: process.env.NAME,
@@ -69,14 +95,5 @@ const processEnv = {
    NAME5: process.env.NAME5,
    KEY_Value: process.env.KEY_Value,
    keys2Da: process.env.keys2Da,
-}
-
-class BadEnvError extends Error {
-    constructor(public message: string, public cause: unknown){
-        super(message)
-        if (cause instanceof Error) {
-          this.message = [message, cause].join("\n ↳ ");
-        }
-    }
 }
                
