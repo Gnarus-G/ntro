@@ -2,8 +2,8 @@ use chumsky::prelude::*;
 use serde_json::Value;
 use std::{
     fs::File,
-    io::{BufReader, Read},
-    path::PathBuf,
+    io::{BufReader, BufWriter, Read, Write},
+    path::{Path, PathBuf},
     process::Command,
 };
 
@@ -160,6 +160,45 @@ pub fn npm_install() -> Result<()> {
             out.status.code()
         ));
     }
+
+    Ok(())
+}
+
+pub fn add_tsconfig_path<P: AsRef<Path>>(path: P) -> Result<()> {
+    let mut ts_config: Value = File::open("./tsconfig.json")
+        .context("couldn't open tsconfig.json")
+        .map(BufReader::new)
+        .and_then(|reader| serde_json::from_reader(reader).context("failed to parse tsconfig.json"))
+        .context("failed to read tsconfig.json")?;
+
+    ts_config
+        .get_mut("compilerOptions")
+        .context("couldn't find compilerOptions in tsconfig.json")
+        .and_then(|paths| {
+            paths
+                .get_mut("paths")
+                .and_then(|node| node.as_object_mut())
+                .map(|paths| {
+                    paths.insert(
+                        "$env".to_string(),
+                        Value::Array(vec![Value::String(
+                            path.as_ref().to_string_lossy().to_string(),
+                        )]),
+                    )
+                })
+                .ok_or(anyhow!("failed to add $env as a path on tsconfig.json"))
+        })?;
+
+    File::options()
+        .write(true)
+        .open("./tsconfig.json")
+        .map(BufWriter::new)
+        .and_then(|mut w| {
+            let new_content = serde_json::to_string_pretty::<Value>(&ts_config)?;
+            w.write_all(new_content.as_bytes())?;
+            w.flush()
+        })
+        .context("failed to flush updated tsconfig.json contents")?;
 
     Ok(())
 }

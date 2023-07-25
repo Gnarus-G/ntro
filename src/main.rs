@@ -28,7 +28,7 @@ enum Command {
     },
     /// Generate typescript types from .env files.
     Dotenv {
-        /// Path to a yaml file.
+        /// Path(s) to some .env files.
         source_files: Vec<PathBuf>,
 
         /// Set the output directory, to where to save the env.d.ts file.
@@ -38,6 +38,10 @@ enum Command {
         /// Generate a typescript module implementing a zod schema for env variables
         #[arg(short, long)]
         zod: bool,
+
+        /// Update the project's tsconfig.json to include a path alias to the env.parsed.ts module
+        #[arg(short = 'p', long)]
+        ts_config_path: bool,
     },
     /// Generate a completions file for a specified shell
     Completion {
@@ -62,7 +66,7 @@ fn main() -> Result<()> {
                 "the file path given should have had a filename for its yaml content to be parsed",
             ));
 
-            write_output(output_path, content)?;
+            write_output(&output_path, content)?;
         }
         Command::Completion { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "ntro", &mut std::io::stdout());
@@ -71,32 +75,39 @@ fn main() -> Result<()> {
             source_files,
             output_dir,
             zod,
+            ts_config_path,
         } => {
             if zod {
                 let content = dotenv::zod::generate_zod_schema(&source_files)?;
                 let output_path = output_dir.clone().unwrap_or_default().join("env.parsed.ts");
 
-                write_output(output_path, content)?;
+                write_output(&output_path, content)?;
 
                 if let Err(e) = dotenv::zod::npm_install() {
                     eprintln!("{e}");
+                }
+
+                if ts_config_path {
+                    if let Err(e) = dotenv::zod::add_tsconfig_path(output_path) {
+                        eprintln!("{e}");
+                    }
                 }
             }
 
             let content = dotenv::generate_typescript_types(&source_files)?;
             let output_path = output_dir.unwrap_or_default().join("env.d.ts");
 
-            write_output(output_path, content)?;
+            write_output(&output_path, content)?;
         }
     };
 
     Ok(())
 }
 
-fn write_output(output_path: PathBuf, content: String) -> Result<()> {
-    let content = prettify(content.as_bytes(), &output_path)?;
+fn write_output(output_path: &PathBuf, content: String) -> Result<()> {
+    let content = prettify(content.as_bytes(), output_path)?;
 
-    let mut ofile = File::create(&output_path)?;
+    let mut ofile = File::create(output_path)?;
     ofile.write_all(&content)?;
 
     Ok(())
