@@ -4,7 +4,6 @@ mod prettier;
 use std::{
     fs::File,
     io::{BufReader, Write},
-    path::Path,
     process::Command,
 };
 
@@ -15,14 +14,14 @@ use crate::command::pm::PackageManager;
 
 use self::prettier::prettier;
 
-pub fn prettify(file: &[u8], file_name: &Path) -> anyhow::Result<Vec<u8>> {
-    let mut prettier = prettier(file_name)?;
+pub fn prettify<E: AsRef<str>>(content: &[u8], file_extension: E) -> anyhow::Result<Vec<u8>> {
+    let mut prettier = prettier(file_extension.as_ref())?;
 
     let mut prettier_stdin = prettier.stdin.take().ok_or(anyhow!(
         "failed to open stdin to pass file contents to prettier"
     ))?;
 
-    prettier_stdin.write_all(file)?;
+    prettier_stdin.write_all(content)?;
 
     // Finish (close file handle)
     drop(prettier_stdin);

@@ -5,8 +5,13 @@ use which::which;
 
 use super::pm::PackageManager;
 
-pub fn prettier(file_name: &Path) -> anyhow::Result<process::Child> {
+pub fn prettier(file_extension: &str) -> anyhow::Result<process::Child> {
     let pm = PackageManager::from_current_project();
+
+    // pretend file name, doesn't need to exist,
+    // but its extension describe how prettier
+    // should work
+    let file_name = &Path::new("temp").with_extension(file_extension);
 
     let package_manager_executable = pm
         .map(PackageManager::into_executor_name)

@@ -8,6 +8,8 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 
+use crate::command::prettify;
+
 use super::parse::{parser_with_type_hint, Variable};
 
 pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
@@ -145,13 +147,17 @@ pub fn add_tsconfig_path<P: AsRef<Path>>(path: P) -> Result<()> {
     File::options()
         .write(true)
         .open("./tsconfig.json")
+        .context("failed to open tsconfig.json")
         .map(BufWriter::new)
         .and_then(|mut w| {
-            let new_content = serde_json::to_string_pretty::<Value>(&ts_config)?;
-            w.write_all(new_content.as_bytes())?;
+            let new_content = serde_json::to_string::<Value>(&ts_config)?;
+            let pretty = prettify(new_content.as_bytes(), ".json")?;
+            w.write_all(&pretty)
+                .context("failed to write to tsconfig.json")?;
             w.flush()
+                .context("failed to flush updated tsconfig.json contents")
         })
-        .context("failed to flush updated tsconfig.json contents")?;
+        .context("failed to update tsconfig.json contents")?;
 
     Ok(())
 }

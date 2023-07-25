@@ -1,6 +1,6 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::{CommandFactory, Parser, Subcommand};
 use ntro::{dotenv, yaml};
 
@@ -104,7 +104,13 @@ fn main() -> Result<()> {
 }
 
 fn write_output(output_path: &PathBuf, content: String) -> Result<()> {
-    let content = command::prettify(content.as_bytes(), output_path)?;
+    let content = command::prettify(
+        content.as_bytes(),
+        output_path
+            .extension()
+            .ok_or(anyhow!("output_path given doesn't have an extension"))?
+            .to_string_lossy(),
+    )?;
 
     let mut ofile = File::create(output_path)?;
     ofile.write_all(&content)?;
