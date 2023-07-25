@@ -38,9 +38,10 @@ enum Command {
         #[arg(short, long)]
         zod: bool,
 
-        /// Update the project's tsconfig.json to include a path alias to the env.parsed.ts module
-        #[arg(short = 'p', long)]
-        ts_config_path: bool,
+        /// Update the project's tsconfig.json to include a path alias to the env.parsed.ts module that
+        /// holds the zod schemas.
+        #[arg(short = 'p', long, requires("zod"))]
+        set_ts_config_path_alias: bool,
     },
     /// Generate a completions file for a specified shell
     Completion {
@@ -74,7 +75,7 @@ fn main() -> Result<()> {
             source_files,
             output_dir,
             zod,
-            ts_config_path,
+            set_ts_config_path_alias,
         } => {
             if zod {
                 let content = dotenv::zod::generate_zod_schema(&source_files)?;
@@ -86,7 +87,7 @@ fn main() -> Result<()> {
                     eprintln!("{e}");
                 }
 
-                if ts_config_path {
+                if set_ts_config_path_alias {
                     if let Err(e) = dotenv::zod::add_tsconfig_path(output_path) {
                         eprintln!("{e}");
                     }
