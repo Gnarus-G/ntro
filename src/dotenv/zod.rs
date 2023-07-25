@@ -144,9 +144,7 @@ pub fn add_tsconfig_path<P: AsRef<Path>>(path: P) -> Result<()> {
                 .ok_or(anyhow!("failed to add $env as a path on tsconfig.json"))
         })?;
 
-    File::options()
-        .write(true)
-        .open("./tsconfig.json")
+    File::create("./tsconfig.json")
         .context("failed to open tsconfig.json")
         .map(BufWriter::new)
         .and_then(|mut w| {
