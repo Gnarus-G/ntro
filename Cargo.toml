@@ -2,7 +2,7 @@
 name = "ntro"
 version = "0.2.0"
 edition = "2021"
-description = "Introspect configuration files and output a typescript type declarations."
+description = "Introspect configuration files and generate typescript type declarations or other useful typescript code."
 homepage = "https://github.com/Gnarus-G/ntro"
 repository = "https://github.com/Gnarus-G/ntro"
 license = "MIT"

@@ -8,8 +8,7 @@ mod prettify;
 use prettify::prettify;
 
 #[derive(Parser, Debug)]
-#[clap(author)]
-/// Generate types from configuration files
+#[command(author, version, about)]
 struct Cli {
     #[command(subcommand)]
     command: Command,

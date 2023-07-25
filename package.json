@@ -1,7 +1,7 @@
 {
   "name": "ntro",
   "version": "0.2.0",
-  "description": "Introspect configuration files and output a typescript type declarations.",
+  "description": "Introspect configuration files and generate typescript type declarations or other useful typescript code.",
   "bin": {
     "ntro": "./npm/run.js"
   },
