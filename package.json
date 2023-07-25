@@ -1,7 +1,7 @@
 {
   "name": "ntro",
   "version": "0.2.0",
-  "description": "Introspect configuration files and output a typescript type declarations.",
+  "description": "Introspect configuration files and generate typescript type declarations or other useful typescript code.",
   "bin": {
     "ntro": "./npm/run.js"
   },
@@ -27,6 +27,10 @@
   "license": "MIT",
   "dependencies": {
     "binary-install": "^1.1.0",
-    "tar": "^6.1.15"
+    "tar": "^6.1.15",
+    "zod": "^3.21.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.1.6"
   }
 }

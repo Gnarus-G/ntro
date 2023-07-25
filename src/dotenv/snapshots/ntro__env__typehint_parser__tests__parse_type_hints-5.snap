@@ -1,0 +1,14 @@
+---
+source: src/env/typehint_parser.rs
+expression: "Parser::new(\"@type 'qa' || 'dev' ||| | 'prod' | || 'test'\").parse()"
+---
+Some(
+    Union(
+        [
+            "'qa'",
+            "'dev'",
+            "'prod'",
+            "'test'",
+        ],
+    ),
+)

@@ -2,7 +2,7 @@
 name = "ntro"
 version = "0.2.0"
 edition = "2021"
-description = "Introspect configuration files and output a typescript type declarations."
+description = "Introspect configuration files and generate typescript type declarations or other useful typescript code."
 homepage = "https://github.com/Gnarus-G/ntro"
 repository = "https://github.com/Gnarus-G/ntro"
 license = "MIT"
@@ -14,7 +14,8 @@ anyhow = "1.0.72"
 chumsky = "0.9.2"
 clap = { version = "4.3.11", features = ["derive"] }
 clap_complete = "4.3.2"
-serde = "1.0.167"
+serde = { version = "1.0.167", features = ["derive"] }
+serde_json = { version = "1.0.103", features = ["preserve_order"] }
 serde_yaml = "0.9.22"
 which = "4.4.0"
 

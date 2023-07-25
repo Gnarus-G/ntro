@@ -7,6 +7,13 @@ use std::{
     path::PathBuf,
 };
 
+use self::parse::parser;
+
+mod parse;
+
+mod typehint_parser;
+pub mod zod;
+
 pub fn generate_typescript_types(files: &[PathBuf]) -> Result<String> {
     let parse = |text, file_name| {
         parser().parse(text).map_err(|err| {
@@ -51,10 +58,10 @@ declare namespace NodeJS {{
 }}
                "#,
         vars.iter()
-            .map(|v| format!(
+            .map(|var| format!(
                 r#"
          {}: string | undefined"#,
-                v.key
+                var
             ))
             .collect::<Vec<_>>()
             .join("\n")
@@ -63,40 +70,19 @@ declare namespace NodeJS {{
     Ok(output)
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-struct Variable {
-    key: String,
-}
-
-fn parser() -> impl Parser<char, Vec<Variable>, Error = Simple<char>> {
-    let comment = just('#')
-        .then(take_until(text::newline()))
-        .map(|(_, (chars, ..))| String::from_iter(chars));
-
-    let ident = text::ident();
-
-    let value = take_until(text::newline()).map(|(chars, ..)| chars.iter().collect::<String>());
-
-    let line = ident.then(just('=')).then(value).map(|((key, _), _)| {
-        return Variable { key };
-    });
-
-    line.padded().padded_by(comment.repeated()).repeated()
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
 
     use insta::assert_display_snapshot;
 
-    use crate::env::generate_typescript_types;
+    use crate::dotenv::generate_typescript_types;
 
     #[test]
     fn introspect_typescript_types_gen() {
         let output = generate_typescript_types(&[
-            PathBuf::from("src/.env.test"),
-            PathBuf::from("src/.env.test2"),
+            PathBuf::from("src/dotenv/.env.test"),
+            PathBuf::from("src/dotenv/.env.test2"),
         ])
         .unwrap();
         assert_display_snapshot!(output);
