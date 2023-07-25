@@ -1,35 +1,11 @@
-use anyhow::{anyhow, Context};
-use ntro::pm::PackageManager;
-use std::{io::Write, path::Path, process};
+use anyhow::Context;
+use std::{path::Path, process};
 
 use which::which;
 
-pub fn prettify(file: &[u8], file_name: &Path) -> anyhow::Result<Vec<u8>> {
-    let mut prettier = prettier(file_name)?;
+use super::pm::PackageManager;
 
-    let mut prettier_stdin = prettier.stdin.take().ok_or(anyhow!(
-        "failed to open stdin to pass file contents to prettier"
-    ))?;
-
-    prettier_stdin.write_all(file)?;
-
-    // Finish (close file handle)
-    drop(prettier_stdin);
-
-    let output = prettier.wait_with_output()?;
-
-    if output.status.success() {
-        Ok(output.stdout)
-    } else {
-        Err(anyhow!(
-            "{}",
-            String::from_utf8_lossy(&[output.stdout, output.stderr].concat())
-        )
-        .context("exited prettier execution with a fail status"))
-    }
-}
-
-fn prettier(file_name: &Path) -> anyhow::Result<process::Child> {
+pub fn prettier(file_name: &Path) -> anyhow::Result<process::Child> {
     let pm = PackageManager::from_current_project();
 
     let package_manager_executable = pm

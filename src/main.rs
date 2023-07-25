@@ -4,8 +4,7 @@ use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use ntro::{dotenv, yaml};
 
-mod prettify;
-use prettify::prettify;
+mod command;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -83,7 +82,7 @@ fn main() -> Result<()> {
 
                 write_output(&output_path, content)?;
 
-                if let Err(e) = dotenv::zod::npm_install() {
+                if let Err(e) = command::npm_install() {
                     eprintln!("{e}");
                 }
 
@@ -105,7 +104,7 @@ fn main() -> Result<()> {
 }
 
 fn write_output(output_path: &PathBuf, content: String) -> Result<()> {
-    let content = prettify(content.as_bytes(), output_path)?;
+    let content = command::prettify(content.as_bytes(), output_path)?;
 
     let mut ofile = File::create(output_path)?;
     ofile.write_all(&content)?;
