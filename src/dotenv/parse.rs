@@ -11,7 +11,10 @@ pub fn parser() -> impl Parser<char, Vec<String>, Error = Simple<char>> {
 
     let value = take_until(text::newline()).map(|(chars, ..)| chars.iter().collect::<String>());
 
-    let line = ident.then(just('=')).then(value).map(|((key, _), _)| key);
+    let line = ident
+        .then(just('=').padded())
+        .then(value)
+        .map(|((key, _), _)| key);
 
     line.padded().padded_by(comment.repeated()).repeated()
 }
@@ -37,7 +40,10 @@ pub fn parser_with_type_hint() -> impl Parser<char, Vec<Variable>, Error = Simpl
 
     let value = take_until(text::newline()).map(|(chars, ..)| chars.iter().collect::<String>());
 
-    let line = ident.then(just('=')).then(value).map(|((key, _), _)| key);
+    let line = ident
+        .then(just('=').padded())
+        .then(value)
+        .map(|((key, _), _)| key);
 
     comment
         .repeated()
