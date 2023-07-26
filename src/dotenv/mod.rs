@@ -60,7 +60,7 @@ declare namespace NodeJS {{
         vars.iter()
             .map(|var| format!(
                 r#"
-         {}: string | undefined"#,
+         {}?: string"#,
                 var
             ))
             .collect::<Vec<_>>()

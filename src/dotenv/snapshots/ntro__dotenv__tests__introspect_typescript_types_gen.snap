@@ -6,21 +6,21 @@ expression: output
 declare namespace NodeJS {
     interface ProcessEnv {
         
-         KEY: string | undefined
+         KEY?: string
 
-         KEY_Value: string | undefined
+         KEY_Value?: string
 
-         NAME: string | undefined
+         NAME?: string
 
-         NAME2: string | undefined
+         NAME2?: string
 
-         NAME5: string | undefined
+         NAME5?: string
 
-         keys: string | undefined
+         keys?: string
 
-         keys2: string | undefined
+         keys2?: string
 
-         keys2Da: string | undefined
+         keys2Da?: string
     }
 }
                
