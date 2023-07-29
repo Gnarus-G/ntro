@@ -49,9 +49,6 @@ enum TokenKind {
 #[derive(Debug)]
 struct Token<'source> {
     kind: TokenKind,
-    /// I might still want to type check and handle errors later
-    #[allow(dead_code)]
-    start: usize,
     text: &'source str,
 }
 
@@ -92,7 +89,6 @@ impl<'source> Lexer<'source> {
         let Some(ch) = self.char_skipping_whitespace() else {
             return Token{
                 kind: TokenKind::Eof,
-                start: self.position,
                 text: ""
             }
         };
@@ -102,18 +98,15 @@ impl<'source> Lexer<'source> {
             b'\'' => self.lex_string_literal(),
             b'|' => Token {
                 kind: TokenKind::Pipe,
-                start: self.position,
                 text: "|",
             },
             c if c.is_ascii_alphabetic() => self.lex_type(),
             b'#' => Token {
                 kind: TokenKind::Pound,
-                start: self.position,
                 text: "#",
             },
             _ => Token {
                 kind: TokenKind::Illegal,
-                start: self.position,
                 text: &self.source[self.position..self.position + 1],
             },
         };
@@ -139,22 +132,18 @@ impl<'source> Lexer<'source> {
         match s {
             "string" => Token {
                 kind: TokenKind::StringType,
-                start,
                 text: s,
             },
             "number" => Token {
                 kind: TokenKind::NumberType,
-                start,
                 text: s,
             },
             "boolean" => Token {
                 kind: TokenKind::BooleanType,
-                start,
                 text: s,
             },
             _ => Token {
                 kind: TokenKind::Illegal,
-                start,
                 text: s,
             },
         }
@@ -178,14 +167,12 @@ impl<'source> Lexer<'source> {
         if s == keyword {
             return Token {
                 kind: TokenKind::Keyword,
-                start,
                 text: s,
             };
         }
 
         return Token {
             kind: TokenKind::Illegal,
-            start,
             text: s,
         };
     }
@@ -203,7 +190,6 @@ impl<'source> Lexer<'source> {
             let s = &self.source[start..self.position];
             return Token {
                 kind: TokenKind::Illegal,
-                start,
                 text: s,
             };
         };
@@ -214,7 +200,6 @@ impl<'source> Lexer<'source> {
 
         return Token {
             kind: TokenKind::StringLiteral,
-            start,
             text: s,
         };
     }

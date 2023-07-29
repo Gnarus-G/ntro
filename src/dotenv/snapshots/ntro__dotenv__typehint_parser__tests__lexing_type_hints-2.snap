@@ -5,12 +5,10 @@ expression: "Lexer::new(\"@type number\").collect::<Vec<_>>()"
 [
     Token {
         kind: Keyword,
-        start: 0,
         text: "@type",
     },
     Token {
         kind: NumberType,
-        start: 6,
         text: "number",
     },
 ]
