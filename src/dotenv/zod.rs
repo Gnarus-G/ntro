@@ -123,7 +123,7 @@ pub fn generate_zod_schema_from_texts(sources: impl Iterator<Item = Metadata>) -
     for (var, meta) in variables {
         if let Some((v, o_meta)) = map.get(&var.key) {
             if let (Some(lt), Some(rt)) = (&v.type_hint, &var.type_hint) {
-                if lt != rt {
+                if lt.0 != rt.0 {
                     return Err(ParseError::ConflictingTypes {
                         a: (o_meta, lt).into(),
                         b: (&meta, rt).into(),
@@ -283,7 +283,7 @@ KEY=
             )
         };
 
-        fn gen(sources: &[String]) {
+        fn generate(sources: &[String]) -> Result<String, anyhow::Error> {
             let sources = sources.iter().cloned().enumerate().map(|(i, source)| {
                 crate::dotenv::zod::Metadata {
                     source: source.as_str().into(),
@@ -291,16 +291,22 @@ KEY=
                 }
             });
 
-            let output = generate_zod_schema_from_texts(sources).unwrap_err();
+            generate_zod_schema_from_texts(sources)
+        }
 
+        fn gen_err(sources: &[String]) {
+            let output = generate(sources).unwrap_err();
             assert_debug_snapshot!(output);
         }
 
-        gen(&[case("string"), case("number")]);
-        gen(&[case("number"), case("boolean")]);
-        gen(&[case("string"), case("boolean")]);
-        gen(&[case("'a' | 'b'"), case("number")]);
+        gen_err(&[case("string"), case("number")]);
+        gen_err(&[case("number"), case("boolean")]);
+        gen_err(&[case("string"), case("boolean")]);
+        gen_err(&[case("'a' | 'b'"), case("number")]);
 
-        gen(&[case("string"), case("boolean"), case("number")]);
+        gen_err(&[case("string"), case("boolean"), case("number")]);
+
+        // This is not a conflict
+        generate(&[case("string"), case("string")]).unwrap();
     }
 }
