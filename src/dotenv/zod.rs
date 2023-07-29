@@ -1,3 +1,4 @@
+use colored::Colorize;
 use serde_json::Value;
 use std::{
     collections::BTreeMap,
@@ -22,7 +23,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ParseError {
-    #[error("found {a} is different from {b}")]
+    #[error("{a}\n\nconflicts with:\n\n{b}")]
     ConflictingTypes { a: TypeHintAt, b: TypeHintAt },
 }
 
@@ -35,13 +36,30 @@ pub struct TypeHintAt {
 
 impl Display for TypeHintAt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
+        let mut lines = self.meta.source.lines().skip(self.line);
+
+        let curr_line = lines
+            .next()
+            .expect("assumption that the type hint was parsed along with its line number, failed");
+        let next_line = lines
+            .next()
+            .expect("assumption that the type hint was parsed along with the variable it was decorating, failed");
+
+        writeln!(f, "{}", self.meta.path.to_string_lossy().dimmed())?;
+        writeln!(
             f,
-            "type {:?} in {}:{}",
-            self.th,
-            self.meta.path.to_string_lossy(),
-            self.line,
-        )
+            "  {}| {}",
+            self.line + 1,
+            curr_line
+                .replace(
+                    self.th.to_string().as_str(),
+                    self.th.to_string().green().to_string().as_str()
+                )
+                .bold()
+        )?;
+        write!(f, "  {}| {}", self.line + 2, next_line)?;
+
+        Ok(())
     }
 }
 

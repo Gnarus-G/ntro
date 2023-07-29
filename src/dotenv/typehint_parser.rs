@@ -1,9 +1,26 @@
+use std::fmt::Display;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TypeHint {
     String,
     Number,
     Boolean,
-    Union(Box<[String]>),
+    Union(Box<[Box<str>]>),
+}
+
+impl Display for TypeHint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            TypeHint::Union(values) => values
+                .iter()
+                .map(|a| a.as_ref())
+                .collect::<Vec<_>>()
+                .join(" | "),
+            tk => format!("{tk:?}").to_lowercase(),
+        };
+
+        f.write_str(&s)
+    }
 }
 
 pub trait ParseTyeHint {
@@ -257,14 +274,14 @@ impl<'source> Parser<'source> {
                 TokenKind::NumberType => return Some(TypeHint::Number),
                 TokenKind::BooleanType => return Some(TypeHint::Boolean),
                 TokenKind::StringLiteral => {
-                    let mut union = vec![self.token.text.to_string()];
+                    let mut union: Vec<Box<str>> = vec![self.token.text.into()];
 
                     while self.next_token().kind == TokenKind::Pipe
                         && self.token.kind != TokenKind::Eof
                     {
                         // just ignore any bunch of consecutive pipes
                         while self.next_token().kind == TokenKind::Pipe {}
-                        union.push(self.token.text.to_string());
+                        union.push(self.token.text.into());
                     }
 
                     return Some(TypeHint::Union(union.into()));
