@@ -4,7 +4,7 @@ use std::{
     collections::BTreeMap,
     fmt::Display,
     fs::File,
-    io::{BufReader, BufWriter, Read, Write},
+    io::{BufReader, BufWriter, Write},
     ops::Deref,
     path::{Path, PathBuf},
     sync::Arc,
@@ -15,7 +15,7 @@ use anyhow::{anyhow, Context, Result};
 use crate::command::prettify;
 
 use super::{
-    parse::{parse_variables_with_type_hints, Variable},
+    parse::{get_texts, parse_variables_with_type_hints, Variable},
     typehint_parser::TypeHint,
 };
 
@@ -80,25 +80,7 @@ pub struct Metadata {
 }
 
 pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
-    let text_and_file_names = files
-        .iter()
-        .map(|file| {
-            File::open(file)
-                .map(BufReader::new)
-                .and_then(|mut rdr| {
-                    let mut buf = String::new();
-                    rdr.read_to_string(&mut buf).map(|_| buf)
-                })
-                .context(format!("failed read {file:?}"))
-                .map(|text| (text, file))
-        })
-        .inspect(|result| {
-            if let Err(e) = &result {
-                log::error!("{e:?}");
-            }
-        })
-        .flatten()
-        .collect::<Vec<_>>();
+    let text_and_file_names = get_texts(files);
 
     let sources = text_and_file_names.iter().map(|(source, path)| Metadata {
         source: source.as_str().into(),

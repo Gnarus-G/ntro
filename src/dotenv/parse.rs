@@ -1,3 +1,11 @@
+use std::{
+    fs::File,
+    io::{BufReader, Read},
+    path::PathBuf,
+};
+
+use anyhow::Context;
+
 use super::typehint_parser::{ParseTyeHint, TypeHint};
 
 type WithLineNumber<T> = (T, usize);
@@ -76,4 +84,26 @@ pub fn parse_variables_with_type_hints(source: &str) -> Vec<Variable> {
     }
 
     vars
+}
+
+pub fn get_texts(files: &[PathBuf]) -> Vec<(String, &PathBuf)> {
+    files
+        .iter()
+        .map(|file| {
+            File::open(file)
+                .map(BufReader::new)
+                .and_then(|mut rdr| {
+                    let mut buf = String::new();
+                    rdr.read_to_string(&mut buf).map(|_| buf)
+                })
+                .context(format!("failed read {file:?}"))
+                .map(|text| (text, file))
+        })
+        .inspect(|result| {
+            if let Err(e) = &result {
+                log::error!("{e:?}");
+            }
+        })
+        .flatten()
+        .collect::<Vec<_>>()
 }
