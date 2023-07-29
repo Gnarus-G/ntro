@@ -17,7 +17,7 @@ const serverEnvSchemas = {
     NAME2: z.enum(['a','b']),
     NAME5: z.string(),
     keys: z.string(),
-    keys2: z.coerce.string(),
+    keys2: z.string(),
     keys2Da: z.enum(['city','townhall']),
 }
 

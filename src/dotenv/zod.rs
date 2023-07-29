@@ -131,7 +131,7 @@ pub fn generate_zod_schema_from_texts(sources: impl Iterator<Item = Metadata>) -
             var.key,
             match &var.type_hint {
                 Some(th) => match &th.0 {
-                    super::typehint_parser::TypeHint::String => "z.coerce.string()".to_string(),
+                    super::typehint_parser::TypeHint::String => "z.string()".to_string(),
                     super::typehint_parser::TypeHint::Number => "z.coerce.number()".to_string(),
                     super::typehint_parser::TypeHint::Boolean => "z.coerce.boolean()".to_string(),
                     super::typehint_parser::TypeHint::Union(values) =>

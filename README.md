@@ -135,7 +135,7 @@ const serverEnvSchemas = {
   NAME: z.string(),
   NAME2: z.enum(["a", "b"]),
   keys: z.string(),
-  keys2: z.coerce.string(),
+  keys2: z.string(),
 };
 
 //... more implementation details are generated
