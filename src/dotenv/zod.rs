@@ -1,6 +1,7 @@
-use chumsky::prelude::*;
 use serde_json::Value;
 use std::{
+    collections::BTreeMap,
+    fmt::Display,
     fs::File,
     io::{BufReader, BufWriter, Read, Write},
     path::{Path, PathBuf},
@@ -10,23 +11,59 @@ use anyhow::{anyhow, Context, Result};
 
 use crate::command::prettify;
 
-use super::parse::{parser_with_type_hint, Variable};
+use super::{
+    parse::{parse_variables_with_type_hints, Variable},
+    typehint_parser::TypeHint,
+};
+
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum ParseError {
+    #[error("found {a} is different from {b}")]
+    ConflictingTypes { a: TypeHintAt, b: TypeHintAt },
+}
+
+#[derive(Debug)]
+pub struct TypeHintAt {
+    pub th: TypeHint,
+    pub file: PathBuf,
+    pub line: usize,
+}
+
+impl Display for TypeHintAt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "type {:?} in {}:{}",
+            self.th,
+            self.file.to_string_lossy(),
+            self.line,
+        )
+    }
+}
+
+impl From<(&PathBuf, &(TypeHint, usize))> for TypeHintAt {
+    fn from(value: (&PathBuf, &(TypeHint, usize))) -> Self {
+        Self {
+            th: value.1 .0.clone(),
+            file: value.0.clone(),
+            line: value.1 .1,
+        }
+    }
+}
 
 pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
-    let parse = |text, file_name| {
-        parser_with_type_hint().parse(text).map_err(|err| {
-            anyhow!(
-                "failed to parse {:?}: {}",
-                file_name,
-                err.iter()
-                    .map(|e| e.to_string())
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            )
-        })
+    let mut map: BTreeMap<String, (Variable, PathBuf)> = BTreeMap::new();
+
+    let parse = |text: String, file_name| {
+        return parse_variables_with_type_hints(&text)
+            .into_iter()
+            .map(|var| (var, file_name))
+            .collect::<Vec<_>>();
     };
 
-    let vars = files
+    let variables = files
         .iter()
         .map(|file| {
             File::open(file)
@@ -36,7 +73,7 @@ pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
                     rdr.read_to_string(&mut buf).map(|_| buf)
                 })
                 .context(format!("failed read {file:?}"))
-                .and_then(|text| parse(text, file))
+                .map(|text| parse(text, file))
         })
         .filter_map(|result| {
             if let Err(e) = &result {
@@ -44,10 +81,29 @@ pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
             }
             result.ok()
         })
-        .flatten()
-        .collect::<Vec<_>>();
+        .flatten();
 
-    let next_public_vars = vars.iter().filter(|v| v.is_public()).collect::<Vec<_>>();
+    for (var, file_name) in variables {
+        if let Some((v, ofile_name)) = map.get(&var.key) {
+            if let (Some(lt), Some(rt)) = (&v.type_hint, &var.type_hint) {
+                if lt != rt {
+                    return Err(ParseError::ConflictingTypes {
+                        a: (ofile_name, lt).into(),
+                        b: (file_name, rt).into(),
+                    })
+                    .context(
+                        "found some conflicting types while parsing variables with type hints",
+                    );
+                }
+            }
+        }
+
+        map.insert(var.key.clone(), (var, file_name.clone()));
+    }
+
+    let vars = map.into_values().map(|value| value.0).collect::<Vec<_>>();
+
+    let next_public_vars = vars.iter().filter(|&v| v.is_public()).collect::<Vec<_>>();
     let other_vars = vars.iter().filter(|v| !v.is_public()).collect::<Vec<_>>();
 
     let to_field_schema = |var: &&Variable| -> String {
@@ -55,7 +111,7 @@ pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
             r#"    {}: {},"#,
             var.key,
             match &var.type_hint {
-                Some(th) => match th {
+                Some(th) => match &th.0 {
                     super::typehint_parser::TypeHint::String => "z.coerce.string()".to_string(),
                     super::typehint_parser::TypeHint::Number => "z.coerce.number()".to_string(),
                     super::typehint_parser::TypeHint::Boolean => "z.coerce.boolean()".to_string(),
@@ -164,7 +220,7 @@ pub fn add_tsconfig_path<P: AsRef<Path>>(path: P) -> Result<()> {
 mod tests {
     use std::path::PathBuf;
 
-    use insta::assert_display_snapshot;
+    use insta::{assert_debug_snapshot, assert_display_snapshot};
 
     use crate::dotenv::zod::generate_zod_schema;
 
@@ -176,5 +232,16 @@ mod tests {
         ])
         .unwrap();
         assert_display_snapshot!(output);
+    }
+
+    #[test]
+    fn zod_schema_gen_with_type_conflicts() {
+        let output = generate_zod_schema(&[
+            PathBuf::from("src/dotenv/.env.test"),
+            PathBuf::from("src/dotenv/.env.dupes.test"),
+        ])
+        .unwrap_err();
+
+        assert_debug_snapshot!(output);
     }
 }

@@ -1,0 +1,28 @@
+---
+source: src/dotenv/zod.rs
+expression: output
+---
+Error {
+    context: "found some conflicting types while parsing variables with type hints",
+    source: ConflictingTypes {
+        a: TypeHintAt {
+            th: Union(
+                [
+                    "'a'",
+                    "'b'",
+                ],
+            ),
+            file: "src/dotenv/.env.test",
+            line: 4,
+        },
+        b: TypeHintAt {
+            th: Union(
+                [
+                    "'a'",
+                ],
+            ),
+            file: "src/dotenv/.env.dupes.test",
+            line: 4,
+        },
+    },
+}

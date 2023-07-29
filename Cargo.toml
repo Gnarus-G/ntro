@@ -11,12 +11,12 @@ license = "MIT"
 
 [dependencies]
 anyhow = "1.0.72"
-chumsky = "0.9.2"
 clap = { version = "4.3.11", features = ["derive"] }
 clap_complete = "4.3.2"
 serde = { version = "1.0.167", features = ["derive"] }
 serde_json = { version = "1.0.103", features = ["preserve_order"] }
 serde_yaml = "0.9.22"
+thiserror = "1.0.44"
 which = "4.4.0"
 
 [dev-dependencies]

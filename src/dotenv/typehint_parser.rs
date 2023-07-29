@@ -1,9 +1,9 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TypeHint {
     String,
     Number,
     Boolean,
-    Union(Vec<String>),
+    Union(Box<[String]>),
 }
 
 pub trait ParseTyeHint {
@@ -19,6 +19,7 @@ impl ParseTyeHint for &str {
 #[derive(PartialEq, Debug)]
 enum TokenKind {
     Keyword,
+    Pound,
     StringType,
     NumberType,
     BooleanType,
@@ -88,6 +89,11 @@ impl<'source> Lexer<'source> {
                 text: "|",
             },
             c if c.is_ascii_alphabetic() => self.lex_type(),
+            b'#' => Token {
+                kind: TokenKind::Pound,
+                start: self.position,
+                text: "#",
+            },
             _ => Token {
                 kind: TokenKind::Illegal,
                 start: self.position,
@@ -241,7 +247,7 @@ impl<'source> Parser<'source> {
     // }
 
     pub fn parse(&mut self) -> Option<TypeHint> {
-        if self.token.kind != TokenKind::Keyword {
+        if self.token.kind != TokenKind::Keyword && self.token.kind != TokenKind::Pound {
             return None;
         }
 
@@ -261,12 +267,13 @@ impl<'source> Parser<'source> {
                         union.push(self.token.text.to_string());
                     }
 
-                    return Some(TypeHint::Union(union));
+                    return Some(TypeHint::Union(union.into()));
                 }
                 TokenKind::Eof => return None,
                 TokenKind::Pipe => {}
                 TokenKind::Illegal => {}
                 TokenKind::Keyword => {}
+                TokenKind::Pound => {}
             }
 
             self.next_token();
