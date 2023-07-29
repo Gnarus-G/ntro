@@ -77,6 +77,10 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             source_file,
             output_dir,
         } => {
+            log::info!(
+                "starting to generate a declaration file for {:?}",
+                source_file
+            );
             let content = yaml::generate_typescript_types(&source_file)?;
 
             let output_path = output_dir
@@ -86,6 +90,12 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             ));
 
             write_output(&output_path, content)?;
+
+            log::info!(
+                "successfully generated a declaration file for {:?} to {:?}",
+                source_file,
+                output_path
+            );
         }
         Command::Completion { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "ntro", &mut std::io::stdout());
@@ -99,7 +109,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
         } => {
             let work = || -> anyhow::Result<()> {
                 if zod {
-                    log::info!("starting to generate zod schema");
+                    log::info!("starting to generate zod schema for {:?}", source_files);
                     let content = dotenv::zod::generate_zod_schema(&source_files)?;
                     let output_path = output_dir.clone().unwrap_or_default().join("env.parsed.ts");
 
@@ -110,17 +120,32 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                     }
 
                     if set_ts_config_path_alias {
-                        if let Err(e) = dotenv::zod::add_tsconfig_path(output_path) {
+                        if let Err(e) = dotenv::zod::add_tsconfig_path(&output_path) {
                             log::error!("{e:#}");
                         }
                     }
+
+                    log::info!(
+                        "successfully generated a declaration file for {:?} to {:?}",
+                        source_files,
+                        output_path
+                    );
                 }
 
-                log::info!("starting to generate typescript declaration files");
+                log::info!(
+                    "starting to generate typescript declaration files for {:?}",
+                    source_files
+                );
                 let content = dotenv::generate_typescript_types(&source_files)?;
                 let output_path = output_dir.clone().unwrap_or_default().join("env.d.ts");
 
                 write_output(&output_path, content)?;
+
+                log::info!(
+                    "successfully generated a declaration file for {:?} to {:?}",
+                    source_files,
+                    output_path
+                );
 
                 Ok(())
             };
