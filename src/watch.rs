@@ -1,7 +1,7 @@
 use notify::*;
 use std::{fmt::Debug, path::Path, time::Duration};
 
-pub fn wath<P: AsRef<Path> + Debug, F: Fn()>(paths: &[P], work: F) -> anyhow::Result<()> {
+pub fn watch<P: AsRef<Path> + Debug, F: Fn()>(paths: &[P], work: F) -> anyhow::Result<()> {
     let (tx, rx) = std::sync::mpsc::channel();
 
     let config = Config::default().with_poll_interval(Duration::from_secs(1));
@@ -11,7 +11,7 @@ pub fn wath<P: AsRef<Path> + Debug, F: Fn()>(paths: &[P], work: F) -> anyhow::Re
         watcher.watch(path.as_ref(), RecursiveMode::NonRecursive)?;
     }
 
-    log::info!("watching: {:?}", paths);
+    log::info!("watching {:?}", paths);
 
     for _ in rx {
         work()

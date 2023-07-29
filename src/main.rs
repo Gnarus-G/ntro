@@ -134,7 +134,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
 
                 work_logging_errors();
 
-                watch::wath(&source_files, work_logging_errors)?;
+                watch::watch(&source_files, work_logging_errors)?;
             } else {
                 work()?;
             }
