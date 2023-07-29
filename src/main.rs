@@ -3,6 +3,7 @@ use std::{fs::File, io::Write, path::PathBuf};
 use anyhow::{anyhow, Result};
 use clap::{CommandFactory, Parser, Subcommand};
 use ntro::{dotenv, yaml};
+use simple_logger::SimpleLogger;
 
 mod command;
 mod watch;
@@ -57,6 +58,8 @@ enum Command {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    SimpleLogger::new().init().unwrap();
+
     run(cli)?;
 
     Ok(())
@@ -90,22 +93,24 @@ fn run(cli: Cli) -> anyhow::Result<()> {
         } => {
             let work = || -> anyhow::Result<()> {
                 if zod {
+                    log::info!("starting to generate zod schema");
                     let content = dotenv::zod::generate_zod_schema(&source_files)?;
                     let output_path = output_dir.clone().unwrap_or_default().join("env.parsed.ts");
 
                     write_output(&output_path, content)?;
 
                     if let Err(e) = command::npm_install() {
-                        eprintln!("{e}");
+                        log::error!("{e:#}");
                     }
 
                     if set_ts_config_path_alias {
                         if let Err(e) = dotenv::zod::add_tsconfig_path(output_path) {
-                            eprintln!("{e}");
+                            log::error!("{e:#}");
                         }
                     }
                 }
 
+                log::info!("starting to generate typescript declaration files");
                 let content = dotenv::generate_typescript_types(&source_files)?;
                 let output_path = output_dir.clone().unwrap_or_default().join("env.d.ts");
 
@@ -117,7 +122,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             if watch {
                 let work_logging_errors = || {
                     if let Err(e) = work() {
-                        eprintln!("{e:#}");
+                        log::error!("{e:#}");
                     }
                 };
 

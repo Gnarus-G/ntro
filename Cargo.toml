@@ -14,10 +14,12 @@ anyhow = "1.0.72"
 clap = { version = "4.3.11", features = ["derive"] }
 clap_complete = "4.3.2"
 colored = "2.0.4"
+log = "0.4.19"
 notify = "6.0.1"
 serde = { version = "1.0.167", features = ["derive"] }
 serde_json = { version = "1.0.103", features = ["preserve_order"] }
 serde_yaml = "0.9.22"
+simple_logger = { version = "4.2.0", features = ["stderr"] }
 thiserror = "1.0.44"
 which = "4.4.0"
 

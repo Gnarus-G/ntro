@@ -54,7 +54,7 @@ pub fn npm_install() -> Result<()> {
         return Ok(());
     }
 
-    eprintln!("Installing zod");
+    log::info!("installing zod...");
     let out = PackageManager::from_current_project()
         .ok_or(anyhow!("couldn't get package manager from current project"))
         .or(PackageManager::from_global())

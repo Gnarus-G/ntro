@@ -33,7 +33,7 @@ pub fn generate_typescript_types(files: &[PathBuf]) -> Result<String> {
         })
         .filter_map(|result| {
             if let Err(e) = &result {
-                eprintln!("{e:?}");
+                log::error!("{e:?}");
             }
             result.ok()
         })
