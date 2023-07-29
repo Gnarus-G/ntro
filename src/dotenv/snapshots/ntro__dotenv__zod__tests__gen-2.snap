@@ -6,13 +6,13 @@ Error {
     context: "found some conflicting types while parsing variables with type hints",
     source: ConflictingTypes {
         a: TypeHintAt {
-            th: String,
-            file: "src/dotenv/.env.test",
+            th: Number,
+            file: "src/dotenv/.env.test.0",
             line: 1,
         },
         b: TypeHintAt {
-            th: Number,
-            file: "src/dotenv/.env.dupes.test",
+            th: Boolean,
+            file: "src/dotenv/.env.test.1",
             line: 1,
         },
     },

@@ -54,16 +54,7 @@ impl From<(&PathBuf, &(TypeHint, usize))> for TypeHintAt {
 }
 
 pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
-    let mut map: BTreeMap<String, (Variable, PathBuf)> = BTreeMap::new();
-
-    let parse = |text: String, file_name| {
-        return parse_variables_with_type_hints(&text)
-            .into_iter()
-            .map(|var| (var, file_name))
-            .collect::<Vec<_>>();
-    };
-
-    let variables = files
+    let sources = files
         .iter()
         .map(|file| {
             File::open(file)
@@ -73,15 +64,31 @@ pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
                     rdr.read_to_string(&mut buf).map(|_| buf)
                 })
                 .context(format!("failed read {file:?}"))
-                .map(|text| parse(text, file))
+                .map(|text| (text, file.clone()))
         })
-        .filter_map(|result| {
+        .inspect(|result| {
             if let Err(e) = &result {
                 eprintln!("{e:?}");
             }
-            result.ok()
         })
         .flatten();
+
+    generate_zod_schema_from_texts(sources)
+}
+
+type ContentFromFile = (String, PathBuf);
+
+pub fn generate_zod_schema_from_texts(
+    sources: impl Iterator<Item = ContentFromFile>,
+) -> Result<String> {
+    let mut map: BTreeMap<String, (Variable, PathBuf)> = BTreeMap::new();
+
+    let variables = sources.flat_map(|(text, file)| {
+        return parse_variables_with_type_hints(&text)
+            .into_iter()
+            .map(|var| (var, file.clone()))
+            .collect::<Vec<_>>();
+    });
 
     for (var, file_name) in variables {
         if let Some((v, ofile_name)) = map.get(&var.key) {
@@ -89,7 +96,7 @@ pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
                 if lt != rt {
                     return Err(ParseError::ConflictingTypes {
                         a: (ofile_name, lt).into(),
-                        b: (file_name, rt).into(),
+                        b: (&file_name, rt).into(),
                     })
                     .context(
                         "found some conflicting types while parsing variables with type hints",
@@ -222,7 +229,7 @@ mod tests {
 
     use insta::{assert_debug_snapshot, assert_display_snapshot};
 
-    use crate::dotenv::zod::generate_zod_schema;
+    use crate::dotenv::zod::{generate_zod_schema, generate_zod_schema_from_texts};
 
     #[test]
     fn zod_schema_gen() {
@@ -236,12 +243,32 @@ mod tests {
 
     #[test]
     fn zod_schema_gen_with_type_conflicts() {
-        let output = generate_zod_schema(&[
-            PathBuf::from("src/dotenv/.env.test"),
-            PathBuf::from("src/dotenv/.env.dupes.test"),
-        ])
-        .unwrap_err();
+        let case = |s: &str| {
+            format!(
+                r#"
+# @type {}
+KEY=
+            "#,
+                s
+            )
+        };
 
-        assert_debug_snapshot!(output);
+        fn gen(sources: &[String]) {
+            let sources =
+                sources.iter().cloned().enumerate().map(|(i, source)| {
+                    (source, PathBuf::from(format!("src/dotenv/.env.test.{}", i)))
+                });
+
+            let output = generate_zod_schema_from_texts(sources).unwrap_err();
+
+            assert_debug_snapshot!(output);
+        }
+
+        gen(&[case("string"), case("number")]);
+        gen(&[case("number"), case("boolean")]);
+        gen(&[case("string"), case("boolean")]);
+        gen(&[case("'a' | 'b'"), case("number")]);
+
+        gen(&[case("string"), case("boolean"), case("number")]);
     }
 }

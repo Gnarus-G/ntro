@@ -7,12 +7,12 @@ Error {
     source: ConflictingTypes {
         a: TypeHintAt {
             th: String,
-            file: "src/dotenv/.env.test",
+            file: "src/dotenv/.env.test.0",
             line: 1,
         },
         b: TypeHintAt {
-            th: Number,
-            file: "src/dotenv/.env.dupes.test",
+            th: Boolean,
+            file: "src/dotenv/.env.test.1",
             line: 1,
         },
     },
