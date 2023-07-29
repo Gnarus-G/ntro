@@ -3,12 +3,18 @@ use std::{fs::File, io::Write, path::PathBuf};
 use anyhow::{anyhow, Result};
 use clap::{CommandFactory, Parser, Subcommand};
 use ntro::{dotenv, yaml};
+use simple_logger::SimpleLogger;
 
 mod command;
+mod watch;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Cli {
+    /// Disable logs.
+    #[arg(short, long, global = true)]
+    quiet: bool,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -37,6 +43,10 @@ enum Command {
         #[arg(short, long)]
         zod: bool,
 
+        /// Wath for changes in the source files and rerun.
+        #[arg(short, long)]
+        watch: bool,
+
         /// Update the project's tsconfig.json to include a path alias to the env.parsed.ts module that
         /// holds the zod schemas.
         #[arg(short = 'p', long, requires("zod"))]
@@ -52,6 +62,16 @@ enum Command {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    if !cli.quiet {
+        SimpleLogger::new().init().unwrap();
+    }
+
+    run(cli)?;
+
+    Ok(())
+}
+
+fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Command::Yaml {
             source_file,
@@ -75,28 +95,49 @@ fn main() -> Result<()> {
             output_dir,
             zod,
             set_ts_config_path_alias,
+            watch,
         } => {
-            if zod {
-                let content = dotenv::zod::generate_zod_schema(&source_files)?;
-                let output_path = output_dir.clone().unwrap_or_default().join("env.parsed.ts");
+            let work = || -> anyhow::Result<()> {
+                if zod {
+                    log::info!("starting to generate zod schema");
+                    let content = dotenv::zod::generate_zod_schema(&source_files)?;
+                    let output_path = output_dir.clone().unwrap_or_default().join("env.parsed.ts");
+
+                    write_output(&output_path, content)?;
+
+                    if let Err(e) = command::npm_install() {
+                        log::error!("{e:#}");
+                    }
+
+                    if set_ts_config_path_alias {
+                        if let Err(e) = dotenv::zod::add_tsconfig_path(output_path) {
+                            log::error!("{e:#}");
+                        }
+                    }
+                }
+
+                log::info!("starting to generate typescript declaration files");
+                let content = dotenv::generate_typescript_types(&source_files)?;
+                let output_path = output_dir.clone().unwrap_or_default().join("env.d.ts");
 
                 write_output(&output_path, content)?;
 
-                if let Err(e) = command::npm_install() {
-                    eprintln!("{e}");
-                }
+                Ok(())
+            };
 
-                if set_ts_config_path_alias {
-                    if let Err(e) = dotenv::zod::add_tsconfig_path(output_path) {
-                        eprintln!("{e}");
+            if watch {
+                let work_logging_errors = || {
+                    if let Err(e) = work() {
+                        log::error!("{e:#}");
                     }
-                }
+                };
+
+                work_logging_errors();
+
+                watch::watch(&source_files, work_logging_errors)?;
+            } else {
+                work()?;
             }
-
-            let content = dotenv::generate_typescript_types(&source_files)?;
-            let output_path = output_dir.unwrap_or_default().join("env.d.ts");
-
-            write_output(&output_path, content)?;
         }
     };
 

@@ -23,7 +23,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ParseError {
-    #[error("{a}\n\nconflicts with:\n\n{b}")]
+    #[error("\n{a}\n\nconflicts with:\n\n{b}\n")]
     ConflictingTypes { a: TypeHintAt, b: TypeHintAt },
 }
 
@@ -94,7 +94,7 @@ pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
         })
         .inspect(|result| {
             if let Err(e) = &result {
-                eprintln!("{e:?}");
+                log::error!("{e:?}");
             }
         })
         .flatten()
