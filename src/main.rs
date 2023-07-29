@@ -11,6 +11,10 @@ mod watch;
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Cli {
+    /// Disable logs.
+    #[arg(short, long, global = true)]
+    quiet: bool,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -58,7 +62,9 @@ enum Command {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    SimpleLogger::new().init().unwrap();
+    if !cli.quiet {
+        SimpleLogger::new().init().unwrap();
+    }
 
     run(cli)?;
 
