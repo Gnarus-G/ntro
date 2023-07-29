@@ -1,5 +1,4 @@
-use anyhow::{anyhow, Context, Result};
-use chumsky::prelude::*;
+use anyhow::{Context, Result};
 use std::{
     collections::BTreeSet,
     fs::File,
@@ -7,7 +6,7 @@ use std::{
     path::PathBuf,
 };
 
-use self::parse::parser;
+use self::parse::parse_variables;
 
 mod parse;
 
@@ -15,19 +14,6 @@ mod typehint_parser;
 pub mod zod;
 
 pub fn generate_typescript_types(files: &[PathBuf]) -> Result<String> {
-    let parse = |text, file_name| {
-        parser().parse(text).map_err(|err| {
-            anyhow!(
-                "failed to parse {:?}: {}",
-                file_name,
-                err.iter()
-                    .map(|e| e.to_string())
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            )
-        })
-    };
-
     let vars = files
         .iter()
         .map(|file| {
@@ -38,7 +24,12 @@ pub fn generate_typescript_types(files: &[PathBuf]) -> Result<String> {
                     rdr.read_to_string(&mut buf).map(|_| buf)
                 })
                 .context(format!("failed read {file:?}"))
-                .and_then(|text| parse(text, file))
+                .map(|text| {
+                    parse_variables(&text)
+                        .iter()
+                        .map(|i| i.to_string())
+                        .collect::<Vec<_>>()
+                })
         })
         .filter_map(|result| {
             if let Err(e) = &result {
@@ -60,7 +51,7 @@ declare namespace NodeJS {{
         vars.iter()
             .map(|var| format!(
                 r#"
-         {}: string | undefined"#,
+         {}?: string"#,
                 var
             ))
             .collect::<Vec<_>>()

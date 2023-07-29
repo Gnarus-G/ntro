@@ -1,9 +1,26 @@
-#[derive(Debug)]
+use std::fmt::Display;
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TypeHint {
     String,
     Number,
     Boolean,
-    Union(Vec<String>),
+    Union(Box<[Box<str>]>),
+}
+
+impl Display for TypeHint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            TypeHint::Union(values) => values
+                .iter()
+                .map(|a| a.as_ref())
+                .collect::<Vec<_>>()
+                .join(" | "),
+            tk => format!("{tk:?}").to_lowercase(),
+        };
+
+        f.write_str(&s)
+    }
 }
 
 pub trait ParseTyeHint {
@@ -19,6 +36,7 @@ impl ParseTyeHint for &str {
 #[derive(PartialEq, Debug)]
 enum TokenKind {
     Keyword,
+    Pound,
     StringType,
     NumberType,
     BooleanType,
@@ -31,9 +49,6 @@ enum TokenKind {
 #[derive(Debug)]
 struct Token<'source> {
     kind: TokenKind,
-    /// I might still want to type check and handle errors later
-    #[allow(dead_code)]
-    start: usize,
     text: &'source str,
 }
 
@@ -74,7 +89,6 @@ impl<'source> Lexer<'source> {
         let Some(ch) = self.char_skipping_whitespace() else {
             return Token{
                 kind: TokenKind::Eof,
-                start: self.position,
                 text: ""
             }
         };
@@ -84,13 +98,15 @@ impl<'source> Lexer<'source> {
             b'\'' => self.lex_string_literal(),
             b'|' => Token {
                 kind: TokenKind::Pipe,
-                start: self.position,
                 text: "|",
             },
             c if c.is_ascii_alphabetic() => self.lex_type(),
+            b'#' => Token {
+                kind: TokenKind::Pound,
+                text: "#",
+            },
             _ => Token {
                 kind: TokenKind::Illegal,
-                start: self.position,
                 text: &self.source[self.position..self.position + 1],
             },
         };
@@ -116,22 +132,18 @@ impl<'source> Lexer<'source> {
         match s {
             "string" => Token {
                 kind: TokenKind::StringType,
-                start,
                 text: s,
             },
             "number" => Token {
                 kind: TokenKind::NumberType,
-                start,
                 text: s,
             },
             "boolean" => Token {
                 kind: TokenKind::BooleanType,
-                start,
                 text: s,
             },
             _ => Token {
                 kind: TokenKind::Illegal,
-                start,
                 text: s,
             },
         }
@@ -155,14 +167,12 @@ impl<'source> Lexer<'source> {
         if s == keyword {
             return Token {
                 kind: TokenKind::Keyword,
-                start,
                 text: s,
             };
         }
 
         return Token {
             kind: TokenKind::Illegal,
-            start,
             text: s,
         };
     }
@@ -180,7 +190,6 @@ impl<'source> Lexer<'source> {
             let s = &self.source[start..self.position];
             return Token {
                 kind: TokenKind::Illegal,
-                start,
                 text: s,
             };
         };
@@ -191,7 +200,6 @@ impl<'source> Lexer<'source> {
 
         return Token {
             kind: TokenKind::StringLiteral,
-            start,
             text: s,
         };
     }
@@ -241,7 +249,7 @@ impl<'source> Parser<'source> {
     // }
 
     pub fn parse(&mut self) -> Option<TypeHint> {
-        if self.token.kind != TokenKind::Keyword {
+        if self.token.kind != TokenKind::Keyword && self.token.kind != TokenKind::Pound {
             return None;
         }
 
@@ -251,22 +259,23 @@ impl<'source> Parser<'source> {
                 TokenKind::NumberType => return Some(TypeHint::Number),
                 TokenKind::BooleanType => return Some(TypeHint::Boolean),
                 TokenKind::StringLiteral => {
-                    let mut union = vec![self.token.text.to_string()];
+                    let mut union: Vec<Box<str>> = vec![self.token.text.into()];
 
                     while self.next_token().kind == TokenKind::Pipe
                         && self.token.kind != TokenKind::Eof
                     {
                         // just ignore any bunch of consecutive pipes
                         while self.next_token().kind == TokenKind::Pipe {}
-                        union.push(self.token.text.to_string());
+                        union.push(self.token.text.into());
                     }
 
-                    return Some(TypeHint::Union(union));
+                    return Some(TypeHint::Union(union.into()));
                 }
                 TokenKind::Eof => return None,
                 TokenKind::Pipe => {}
                 TokenKind::Illegal => {}
                 TokenKind::Keyword => {}
+                TokenKind::Pound => {}
             }
 
             self.next_token();

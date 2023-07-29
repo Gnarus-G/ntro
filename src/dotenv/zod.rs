@@ -1,32 +1,86 @@
-use chumsky::prelude::*;
+use colored::Colorize;
 use serde_json::Value;
 use std::{
+    collections::BTreeMap,
+    fmt::Display,
     fs::File,
     io::{BufReader, BufWriter, Read, Write},
+    ops::Deref,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use anyhow::{anyhow, Context, Result};
 
 use crate::command::prettify;
 
-use super::parse::{parser_with_type_hint, Variable};
+use super::{
+    parse::{parse_variables_with_type_hints, Variable},
+    typehint_parser::TypeHint,
+};
+
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum ParseError {
+    #[error("{a}\n\nconflicts with:\n\n{b}")]
+    ConflictingTypes { a: TypeHintAt, b: TypeHintAt },
+}
+
+#[derive(Debug)]
+pub struct TypeHintAt {
+    pub th: TypeHint,
+    pub line: usize,
+    pub meta: Metadata,
+}
+
+impl Display for TypeHintAt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut lines = self.meta.source.lines().skip(self.line);
+
+        let curr_line = lines
+            .next()
+            .expect("assumption that the type hint was parsed along with its line number, failed");
+        let next_line = lines
+            .next()
+            .expect("assumption that the type hint was parsed along with the variable it was decorating, failed");
+
+        writeln!(f, "{}", self.meta.path.to_string_lossy().dimmed())?;
+        writeln!(
+            f,
+            "  {}| {}",
+            self.line + 1,
+            curr_line
+                .replace(
+                    self.th.to_string().as_str(),
+                    self.th.to_string().green().to_string().as_str()
+                )
+                .bold()
+        )?;
+        write!(f, "  {}| {}", self.line + 2, next_line)?;
+
+        Ok(())
+    }
+}
+
+impl From<(&Metadata, &(TypeHint, usize))> for TypeHintAt {
+    fn from(value: (&Metadata, &(TypeHint, usize))) -> Self {
+        Self {
+            th: value.1 .0.clone(),
+            meta: value.0.clone(),
+            line: value.1 .1,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Metadata {
+    source: Arc<str>,
+    path: Arc<Path>,
+}
 
 pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
-    let parse = |text, file_name| {
-        parser_with_type_hint().parse(text).map_err(|err| {
-            anyhow!(
-                "failed to parse {:?}: {}",
-                file_name,
-                err.iter()
-                    .map(|e| e.to_string())
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            )
-        })
-    };
-
-    let vars = files
+    let text_and_file_names = files
         .iter()
         .map(|file| {
             File::open(file)
@@ -36,18 +90,57 @@ pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
                     rdr.read_to_string(&mut buf).map(|_| buf)
                 })
                 .context(format!("failed read {file:?}"))
-                .and_then(|text| parse(text, file))
+                .map(|text| (text, file))
         })
-        .filter_map(|result| {
+        .inspect(|result| {
             if let Err(e) = &result {
                 eprintln!("{e:?}");
             }
-            result.ok()
         })
         .flatten()
         .collect::<Vec<_>>();
 
-    let next_public_vars = vars.iter().filter(|v| v.is_public()).collect::<Vec<_>>();
+    let sources = text_and_file_names.iter().map(|(source, path)| Metadata {
+        source: source.as_str().into(),
+        path: path.as_path().into(),
+    });
+
+    generate_zod_schema_from_texts(sources)
+}
+
+pub fn generate_zod_schema_from_texts(sources: impl Iterator<Item = Metadata>) -> Result<String> {
+    let mut map: BTreeMap<String, (Variable, Metadata)> = BTreeMap::new();
+
+    let variables = sources.flat_map(|meta| -> Vec<(Variable, Metadata)> {
+        let vars = parse_variables_with_type_hints(meta.source.deref())
+            .into_iter()
+            .map(|var| (var, meta.clone()))
+            .collect();
+
+        return vars;
+    });
+
+    for (var, meta) in variables {
+        if let Some((v, o_meta)) = map.get(&var.key) {
+            if let (Some(lt), Some(rt)) = (&v.type_hint, &var.type_hint) {
+                if lt != rt {
+                    return Err(ParseError::ConflictingTypes {
+                        a: (o_meta, lt).into(),
+                        b: (&meta, rt).into(),
+                    })
+                    .context(
+                        "found some conflicting types while parsing variables with type hints",
+                    );
+                }
+            }
+        }
+
+        map.insert(var.key.clone(), (var, meta));
+    }
+
+    let vars = map.into_values().map(|value| value.0).collect::<Vec<_>>();
+
+    let next_public_vars = vars.iter().filter(|&v| v.is_public()).collect::<Vec<_>>();
     let other_vars = vars.iter().filter(|v| !v.is_public()).collect::<Vec<_>>();
 
     let to_field_schema = |var: &&Variable| -> String {
@@ -55,7 +148,7 @@ pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
             r#"    {}: {},"#,
             var.key,
             match &var.type_hint {
-                Some(th) => match th {
+                Some(th) => match &th.0 {
                     super::typehint_parser::TypeHint::String => "z.coerce.string()".to_string(),
                     super::typehint_parser::TypeHint::Number => "z.coerce.number()".to_string(),
                     super::typehint_parser::TypeHint::Boolean => "z.coerce.boolean()".to_string(),
@@ -162,11 +255,11 @@ pub fn add_tsconfig_path<P: AsRef<Path>>(path: P) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
-    use insta::assert_display_snapshot;
+    use insta::{assert_debug_snapshot, assert_display_snapshot};
 
-    use crate::dotenv::zod::generate_zod_schema;
+    use crate::dotenv::zod::{generate_zod_schema, generate_zod_schema_from_texts};
 
     #[test]
     fn zod_schema_gen() {
@@ -176,5 +269,38 @@ mod tests {
         ])
         .unwrap();
         assert_display_snapshot!(output);
+    }
+
+    #[test]
+    fn zod_schema_gen_with_type_conflicts() {
+        let case = |s: &str| {
+            format!(
+                r#"
+# @type {}
+KEY=
+            "#,
+                s
+            )
+        };
+
+        fn gen(sources: &[String]) {
+            let sources = sources.iter().cloned().enumerate().map(|(i, source)| {
+                crate::dotenv::zod::Metadata {
+                    source: source.as_str().into(),
+                    path: Path::new(&format!("src/dotenv/.env.test.{}", i)).into(),
+                }
+            });
+
+            let output = generate_zod_schema_from_texts(sources).unwrap_err();
+
+            assert_debug_snapshot!(output);
+        }
+
+        gen(&[case("string"), case("number")]);
+        gen(&[case("number"), case("boolean")]);
+        gen(&[case("string"), case("boolean")]);
+        gen(&[case("'a' | 'b'"), case("number")]);
+
+        gen(&[case("string"), case("boolean"), case("number")]);
     }
 }
