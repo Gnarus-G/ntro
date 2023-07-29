@@ -4,7 +4,9 @@ use std::{
     fmt::Display,
     fs::File,
     io::{BufReader, BufWriter, Read, Write},
+    ops::Deref,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use anyhow::{anyhow, Context, Result};
@@ -27,8 +29,8 @@ pub enum ParseError {
 #[derive(Debug)]
 pub struct TypeHintAt {
     pub th: TypeHint,
-    pub file: PathBuf,
     pub line: usize,
+    pub meta: Metadata,
 }
 
 impl Display for TypeHintAt {
@@ -37,24 +39,30 @@ impl Display for TypeHintAt {
             f,
             "type {:?} in {}:{}",
             self.th,
-            self.file.to_string_lossy(),
+            self.meta.path.to_string_lossy(),
             self.line,
         )
     }
 }
 
-impl From<(&PathBuf, &(TypeHint, usize))> for TypeHintAt {
-    fn from(value: (&PathBuf, &(TypeHint, usize))) -> Self {
+impl From<(&Metadata, &(TypeHint, usize))> for TypeHintAt {
+    fn from(value: (&Metadata, &(TypeHint, usize))) -> Self {
         Self {
             th: value.1 .0.clone(),
-            file: value.0.clone(),
+            meta: value.0.clone(),
             line: value.1 .1,
         }
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Metadata {
+    source: Arc<str>,
+    path: Arc<Path>,
+}
+
 pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
-    let sources = files
+    let text_and_file_names = files
         .iter()
         .map(|file| {
             File::open(file)
@@ -64,39 +72,43 @@ pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
                     rdr.read_to_string(&mut buf).map(|_| buf)
                 })
                 .context(format!("failed read {file:?}"))
-                .map(|text| (text, file.clone()))
+                .map(|text| (text, file))
         })
         .inspect(|result| {
             if let Err(e) = &result {
                 eprintln!("{e:?}");
             }
         })
-        .flatten();
+        .flatten()
+        .collect::<Vec<_>>();
+
+    let sources = text_and_file_names.iter().map(|(source, path)| Metadata {
+        source: source.as_str().into(),
+        path: path.as_path().into(),
+    });
 
     generate_zod_schema_from_texts(sources)
 }
 
-type ContentFromFile = (String, PathBuf);
+pub fn generate_zod_schema_from_texts(sources: impl Iterator<Item = Metadata>) -> Result<String> {
+    let mut map: BTreeMap<String, (Variable, Metadata)> = BTreeMap::new();
 
-pub fn generate_zod_schema_from_texts(
-    sources: impl Iterator<Item = ContentFromFile>,
-) -> Result<String> {
-    let mut map: BTreeMap<String, (Variable, PathBuf)> = BTreeMap::new();
-
-    let variables = sources.flat_map(|(text, file)| {
-        return parse_variables_with_type_hints(&text)
+    let variables = sources.flat_map(|meta| -> Vec<(Variable, Metadata)> {
+        let vars = parse_variables_with_type_hints(meta.source.deref())
             .into_iter()
-            .map(|var| (var, file.clone()))
-            .collect::<Vec<_>>();
+            .map(|var| (var, meta.clone()))
+            .collect();
+
+        return vars;
     });
 
-    for (var, file_name) in variables {
-        if let Some((v, ofile_name)) = map.get(&var.key) {
+    for (var, meta) in variables {
+        if let Some((v, o_meta)) = map.get(&var.key) {
             if let (Some(lt), Some(rt)) = (&v.type_hint, &var.type_hint) {
                 if lt != rt {
                     return Err(ParseError::ConflictingTypes {
-                        a: (ofile_name, lt).into(),
-                        b: (&file_name, rt).into(),
+                        a: (o_meta, lt).into(),
+                        b: (&meta, rt).into(),
                     })
                     .context(
                         "found some conflicting types while parsing variables with type hints",
@@ -105,7 +117,7 @@ pub fn generate_zod_schema_from_texts(
             }
         }
 
-        map.insert(var.key.clone(), (var, file_name.clone()));
+        map.insert(var.key.clone(), (var, meta));
     }
 
     let vars = map.into_values().map(|value| value.0).collect::<Vec<_>>();
@@ -225,7 +237,7 @@ pub fn add_tsconfig_path<P: AsRef<Path>>(path: P) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     use insta::{assert_debug_snapshot, assert_display_snapshot};
 
@@ -254,10 +266,12 @@ KEY=
         };
 
         fn gen(sources: &[String]) {
-            let sources =
-                sources.iter().cloned().enumerate().map(|(i, source)| {
-                    (source, PathBuf::from(format!("src/dotenv/.env.test.{}", i)))
-                });
+            let sources = sources.iter().cloned().enumerate().map(|(i, source)| {
+                crate::dotenv::zod::Metadata {
+                    source: source.as_str().into(),
+                    path: Path::new(&format!("src/dotenv/.env.test.{}", i)).into(),
+                }
+            });
 
             let output = generate_zod_schema_from_texts(sources).unwrap_err();
 

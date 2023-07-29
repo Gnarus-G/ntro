@@ -12,13 +12,19 @@ Error {
                     "'b'",
                 ],
             ),
-            file: "src/dotenv/.env.test.0",
             line: 1,
+            meta: Metadata {
+                source: "\n# @type 'a' | 'b'\nKEY=\n            ",
+                path: "src/dotenv/.env.test.0",
+            },
         },
         b: TypeHintAt {
             th: Number,
-            file: "src/dotenv/.env.test.1",
             line: 1,
+            meta: Metadata {
+                source: "\n# @type number\nKEY=\n            ",
+                path: "src/dotenv/.env.test.1",
+            },
         },
     },
 }

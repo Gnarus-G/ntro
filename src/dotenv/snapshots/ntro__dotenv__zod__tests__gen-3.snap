@@ -7,13 +7,19 @@ Error {
     source: ConflictingTypes {
         a: TypeHintAt {
             th: String,
-            file: "src/dotenv/.env.test.0",
             line: 1,
+            meta: Metadata {
+                source: "\n# @type string\nKEY=\n            ",
+                path: "src/dotenv/.env.test.0",
+            },
         },
         b: TypeHintAt {
             th: Boolean,
-            file: "src/dotenv/.env.test.1",
             line: 1,
+            meta: Metadata {
+                source: "\n# @type boolean\nKEY=\n            ",
+                path: "src/dotenv/.env.test.1",
+            },
         },
     },
 }
