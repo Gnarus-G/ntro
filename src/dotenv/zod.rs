@@ -117,26 +117,47 @@ pub fn generate_zod_schema_from_texts(sources: impl Iterator<Item = Metadata>) -
             }
         }
 
-        map.insert(var.key.clone(), (var, meta));
+        let no_type_hint_or_variable_yet = map
+            .get(&var.key)
+            .map(|(var, _)| var.type_hint.is_none())
+            .unwrap_or(true);
+
+        if no_type_hint_or_variable_yet {
+            map.insert(var.key.clone(), (var, meta));
+        }
     }
 
-    let vars = map.into_values().map(|value| value.0).collect::<Vec<_>>();
+    let vars = map.into_values().collect::<Vec<_>>();
 
-    let next_public_vars = vars.iter().filter(|&v| v.is_public()).collect::<Vec<_>>();
-    let other_vars = vars.iter().filter(|v| !v.is_public()).collect::<Vec<_>>();
+    let next_public_vars = vars.iter().filter(|&v| v.0.is_public()).collect::<Vec<_>>();
+    let other_vars = vars.iter().filter(|v| !v.0.is_public()).collect::<Vec<_>>();
 
-    let to_field_schema = |var: &&Variable| -> String {
+    let to_field_schema = |(var, meta): &&(Variable, Metadata)| -> String {
         format!(
             r#"    {}: {},"#,
             var.key,
             match &var.type_hint {
-                Some(th) => match &th.0 {
-                    super::typehint_parser::TypeHint::String => "z.string()".to_string(),
-                    super::typehint_parser::TypeHint::Number => "z.coerce.number()".to_string(),
-                    super::typehint_parser::TypeHint::Boolean => "z.coerce.boolean()".to_string(),
-                    super::typehint_parser::TypeHint::Union(values) =>
-                        format!("z.enum([{}])", values.join(",")),
-                },
+                Some(th) => {
+                    let schema = match &th.0 {
+                        super::typehint_parser::TypeHint::String => "z.string()".to_string(),
+                        super::typehint_parser::TypeHint::Number => "z.coerce.number()".to_string(),
+                        super::typehint_parser::TypeHint::Boolean => {
+                            "z.coerce.boolean()".to_string()
+                        }
+                        super::typehint_parser::TypeHint::Union(values) => {
+                            format!("z.enum([{}])", values.join(","))
+                        }
+                    };
+
+                    // including comment for the file and the line from which
+                    // to find the type hint
+                    format!(
+                        r#"{} /* from {:?} on line {} */"#,
+                        schema,
+                        meta.path,
+                        th.1 + 1
+                    )
+                }
                 None => "z.string()".to_string(),
             }
         )
@@ -186,7 +207,7 @@ const processEnv = {{
             .collect::<Vec<_>>()
             .join("\n"),
         vars.iter()
-            .map(|var| format!("   {}: process.env.{},", var.key, var.key))
+            .map(|var| format!("   {}: process.env.{},", var.0.key, var.0.key))
             .collect::<Vec<_>>()
             .join("\n"),
     );
@@ -281,12 +302,12 @@ KEY=
             assert_debug_snapshot!(output);
         }
 
-        // gen_err(&[case("string"), case("number")]);
-        // gen_err(&[case("number"), case("boolean")]);
-        // gen_err(&[case("string"), case("boolean")]);
-        // gen_err(&[case("'a' | 'b'"), case("number")]);
-        //
-        // gen_err(&[case("string"), case("boolean"), case("number")]);
+        gen_err(&[case("string"), case("number")]);
+        gen_err(&[case("number"), case("boolean")]);
+        gen_err(&[case("string"), case("boolean")]);
+        gen_err(&[case("'a' | 'b'"), case("number")]);
+
+        gen_err(&[case("string"), case("boolean"), case("number")]);
 
         // This is not a conflict
         generate(&[case("string"), case("string")]).unwrap();

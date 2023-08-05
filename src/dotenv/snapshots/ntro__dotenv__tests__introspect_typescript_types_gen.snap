@@ -16,6 +16,8 @@ declare namespace NodeJS {
 
          NAME5?: string
 
+         NEXT_PUBLIC_ENVIRONMENT?: string
+
          keys?: string
 
          keys2?: string

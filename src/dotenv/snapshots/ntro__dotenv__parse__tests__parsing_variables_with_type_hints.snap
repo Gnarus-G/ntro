@@ -27,6 +27,21 @@ expression: vars
         key: "KEY",
     },
     Variable {
+        type_hint: Some(
+            (
+                Union(
+                    [
+                        "'qa'",
+                        "'development'",
+                        "'production'",
+                    ],
+                ),
+                9,
+            ),
+        ),
+        key: "NEXT_PUBLIC_ENVIRONMENT",
+    },
+    Variable {
         type_hint: None,
         key: "keys",
     },
@@ -34,7 +49,7 @@ expression: vars
         type_hint: Some(
             (
                 String,
-                15,
+                17,
             ),
         ),
         key: "keys2",
