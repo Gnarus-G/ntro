@@ -13,7 +13,7 @@ const serverEnvSchemas = {
     ...clientEnvSchemas,
     KEY: z.string(),
     KEY_Value: z.coerce.number(),
-    NAME: z.string(),
+    NAME: z.enum(['val','value']),
     NAME2: z.enum(['a','b']),
     NAME5: z.string(),
     keys: z.string(),

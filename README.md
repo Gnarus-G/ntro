@@ -10,6 +10,7 @@ A cli tool that to ntrospect configuration files and output a typescript type de
 ### .yaml -> .d.ts
 
 ```yaml
+# filename: test.multiple.yaml
 calling-birds:
   - huey
   - dewey

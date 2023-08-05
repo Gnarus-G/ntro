@@ -1,14 +1,18 @@
 ---
 source: src/dotenv/typehint_parser.rs
-expression: "Lexer::new(\"@type number\").collect::<Vec<_>>()"
+expression: "Lexer::new(\"# @type string\").collect::<Vec<_>>()"
 ---
 [
+    Token {
+        kind: Pound,
+        text: "#",
+    },
     Token {
         kind: Keyword,
         text: "@type",
     },
     Token {
-        kind: NumberType,
-        text: "number",
+        kind: StringType,
+        text: "string",
     },
 ]

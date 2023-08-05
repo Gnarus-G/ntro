@@ -1,7 +1,7 @@
 ---
 source: src/dotenv/typehint_parser.rs
-expression: "Parser::new(\"@type boolean\").parse()"
+expression: "Parser::new(\"@type number\").parse()"
 ---
-Some(
-    Boolean,
+Ok(
+    Number,
 )
