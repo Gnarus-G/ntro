@@ -29,11 +29,11 @@ pub trait ParseTyeHint {
 
 impl ParseTyeHint for &str {
     fn into_type_hint(self) -> Option<TypeHint> {
-        Parser::new(self).parse()
+        Parser::new(self).parse().ok()
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 enum TokenKind {
     Keyword,
     Pound,
@@ -46,7 +46,7 @@ enum TokenKind {
     Illegal,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 struct Token<'source> {
     kind: TokenKind,
     text: &'source str,
@@ -219,6 +219,21 @@ impl<'source> Iterator for Lexer<'source> {
     }
 }
 
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+enum ParseError<'source> {
+    #[error("expected to find {expected:?} but found {found:?}")]
+    ExpectedToken {
+        expected: TokenKind,
+        found: Token<'source>,
+    },
+    #[error("unexpected end of input")]
+    UnexpectedEnd,
+    #[error("unexpected token found: {found:?}")]
+    IllegalToken { found: Token<'source> },
+}
+
 struct Parser<'source> {
     lexer: Lexer<'source>,
     token: Token<'source>,
@@ -248,40 +263,47 @@ impl<'source> Parser<'source> {
     //     self.peeked.get_or_insert_with(|| self.lexer.next_token())
     // }
 
-    pub fn parse(&mut self) -> Option<TypeHint> {
-        if self.token.kind != TokenKind::Keyword && self.token.kind != TokenKind::Pound {
-            return None;
-        }
-
-        while self.token.kind != TokenKind::Eof {
-            match self.token.kind {
-                TokenKind::StringType => return Some(TypeHint::String),
-                TokenKind::NumberType => return Some(TypeHint::Number),
-                TokenKind::BooleanType => return Some(TypeHint::Boolean),
-                TokenKind::StringLiteral => {
-                    let mut union: Vec<Box<str>> = vec![self.token.text.into()];
-
-                    while self.next_token().kind == TokenKind::Pipe
-                        && self.token.kind != TokenKind::Eof
-                    {
-                        // just ignore any bunch of consecutive pipes
-                        while self.next_token().kind == TokenKind::Pipe {}
-                        union.push(self.token.text.into());
-                    }
-
-                    return Some(TypeHint::Union(union.into()));
-                }
-                TokenKind::Eof => return None,
-                TokenKind::Pipe => {}
-                TokenKind::Illegal => {}
-                TokenKind::Keyword => {}
-                TokenKind::Pound => {}
-            }
-
+    pub fn parse(&mut self) -> Result<TypeHint, ParseError<'source>> {
+        if self.token.kind == TokenKind::Pound {
             self.next_token();
         }
 
-        None
+        self.expect(TokenKind::Keyword)?;
+
+        self.next_token();
+
+        match self.token.kind {
+            TokenKind::StringType => return Ok(TypeHint::String),
+            TokenKind::NumberType => return Ok(TypeHint::Number),
+            TokenKind::BooleanType => return Ok(TypeHint::Boolean),
+            TokenKind::StringLiteral => {
+                let mut union: Vec<Box<str>> = vec![self.token.text.into()];
+
+                while self.next_token().kind == TokenKind::Pipe && self.token.kind != TokenKind::Eof
+                {
+                    // just ignore any bunch of consecutive pipes
+                    while self.next_token().kind == TokenKind::Pipe {}
+                    union.push(self.token.text.into());
+                }
+
+                return Ok(TypeHint::Union(union.into()));
+            }
+            TokenKind::Eof => return Err(ParseError::UnexpectedEnd),
+            TokenKind::Pipe | TokenKind::Illegal | TokenKind::Keyword | TokenKind::Pound => {
+                return Err(ParseError::IllegalToken { found: self.token })
+            }
+        }
+    }
+
+    fn expect(&self, kind: TokenKind) -> Result<(), ParseError<'source>> {
+        if self.token.kind != kind {
+            return Err(ParseError::ExpectedToken {
+                expected: kind,
+                found: self.token,
+            });
+        }
+
+        Ok(())
     }
 }
 
@@ -294,14 +316,18 @@ mod tests {
     #[test]
     fn lexing_type_hints() {
         assert_debug_snapshot!(Lexer::new("@type string").collect::<Vec<_>>());
+        assert_debug_snapshot!(Lexer::new("# @type string").collect::<Vec<_>>());
         assert_debug_snapshot!(Lexer::new("@type number").collect::<Vec<_>>());
+        assert_debug_snapshot!(Lexer::new("# @type number").collect::<Vec<_>>());
         assert_debug_snapshot!(Lexer::new("@type boolean").collect::<Vec<_>>());
         assert_debug_snapshot!(Lexer::new("@type 'qa' | 'dev' | 'prod'").collect::<Vec<_>>());
+        assert_debug_snapshot!(Lexer::new("# @type 'qa' | 'dev' | 'prod'").collect::<Vec<_>>());
     }
 
     #[test]
     fn parse_type_hints() {
         assert_debug_snapshot!(Parser::new("@type string").parse());
+        assert_debug_snapshot!(Parser::new("# @type string").parse());
         assert_debug_snapshot!(Parser::new("@type number").parse());
         assert_debug_snapshot!(Parser::new("@type boolean").parse());
         assert_debug_snapshot!(Parser::new("@type 'qa' | 'dev' | 'prod'").parse());

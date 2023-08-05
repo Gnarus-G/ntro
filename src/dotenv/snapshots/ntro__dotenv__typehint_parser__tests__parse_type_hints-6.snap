@@ -1,6 +1,6 @@
 ---
 source: src/dotenv/typehint_parser.rs
-expression: "Parser::new(\"@type 'qa' | 'dev' | 'prod'\").parse()"
+expression: "Parser::new(\"@type 'qa' || 'dev' ||| | 'prod' | || 'test'\").parse()"
 ---
 Ok(
     Union(
@@ -8,6 +8,7 @@ Ok(
             "'qa'",
             "'dev'",
             "'prod'",
+            "'test'",
         ],
     ),
 )

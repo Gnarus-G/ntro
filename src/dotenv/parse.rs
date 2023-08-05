@@ -107,3 +107,31 @@ pub fn get_texts(files: &[PathBuf]) -> Vec<(String, &PathBuf)> {
         .flatten()
         .collect::<Vec<_>>()
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use insta::assert_debug_snapshot;
+
+    use crate::dotenv::parse::{get_texts, parse_variables_with_type_hints};
+
+    #[test]
+    fn parsing_variables_with_type_hints() {
+        let sources = vec![
+            PathBuf::from("src/dotenv/.env.test"),
+            PathBuf::from("src/dotenv/.env.test2"),
+        ];
+
+        let output = get_texts(&sources);
+
+        for (content, file) in output {
+            let vars = parse_variables_with_type_hints(&content);
+            insta::with_settings!({
+                description => file.to_string_lossy()
+            }, {
+                assert_debug_snapshot!(vars);
+            })
+        }
+    }
+}

@@ -1,0 +1,34 @@
+---
+source: src/dotenv/typehint_parser.rs
+expression: "Lexer::new(\"# @type 'qa' | 'dev' | 'prod'\").collect::<Vec<_>>()"
+---
+[
+    Token {
+        kind: Pound,
+        text: "#",
+    },
+    Token {
+        kind: Keyword,
+        text: "@type",
+    },
+    Token {
+        kind: StringLiteral,
+        text: "'qa'",
+    },
+    Token {
+        kind: Pipe,
+        text: "|",
+    },
+    Token {
+        kind: StringLiteral,
+        text: "'dev'",
+    },
+    Token {
+        kind: Pipe,
+        text: "|",
+    },
+    Token {
+        kind: StringLiteral,
+        text: "'prod'",
+    },
+]

@@ -1,0 +1,42 @@
+---
+source: src/dotenv/parse.rs
+description: src/dotenv/.env.test
+expression: vars
+---
+[
+    Variable {
+        type_hint: None,
+        key: "NAME",
+    },
+    Variable {
+        type_hint: Some(
+            (
+                Union(
+                    [
+                        "'a'",
+                        "'b'",
+                    ],
+                ),
+                5,
+            ),
+        ),
+        key: "NAME2",
+    },
+    Variable {
+        type_hint: None,
+        key: "KEY",
+    },
+    Variable {
+        type_hint: None,
+        key: "keys",
+    },
+    Variable {
+        type_hint: Some(
+            (
+                String,
+                15,
+            ),
+        ),
+        key: "keys2",
+    },
+]

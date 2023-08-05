@@ -1,13 +1,7 @@
 ---
 source: src/dotenv/typehint_parser.rs
-expression: "Parser::new(\"@type 'qa' | 'dev' | 'prod'\").parse()"
+expression: "Parser::new(\"@type boolean\").parse()"
 ---
-Some(
-    Union(
-        [
-            "'qa'",
-            "'dev'",
-            "'prod'",
-        ],
-    ),
+Ok(
+    Boolean,
 )

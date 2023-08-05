@@ -1,6 +1,6 @@
 ---
 source: src/dotenv/typehint_parser.rs
-expression: "Lexer::new(\"@type number\").collect::<Vec<_>>()"
+expression: "Lexer::new(\"@type boolean\").collect::<Vec<_>>()"
 ---
 [
     Token {
@@ -8,7 +8,7 @@ expression: "Lexer::new(\"@type number\").collect::<Vec<_>>()"
         text: "@type",
     },
     Token {
-        kind: NumberType,
-        text: "number",
+        kind: BooleanType,
+        text: "boolean",
     },
 ]
