@@ -6,7 +6,7 @@ expression: output
 import z, { ZodTypeAny } from "zod";
 
 const clientEnvSchemas = {
-    NEXT_PUBLIC_ENVIRONMENT: z.string(),
+    NEXT_PUBLIC_ENVIRONMENT: z.enum(['qa','development','production']) /* from "src/dotenv/.env.test" on line 10 */,
 }
 
 const serverEnvSchemas = {

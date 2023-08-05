@@ -117,7 +117,14 @@ pub fn generate_zod_schema_from_texts(sources: impl Iterator<Item = Metadata>) -
             }
         }
 
-        map.insert(var.key.clone(), (var, meta));
+        let no_type_hint_or_variable_yet = map
+            .get(&var.key)
+            .map(|(var, _)| var.type_hint.is_none())
+            .unwrap_or(true);
+
+        if no_type_hint_or_variable_yet {
+            map.insert(var.key.clone(), (var, meta));
+        }
     }
 
     let vars = map.into_values().collect::<Vec<_>>();
