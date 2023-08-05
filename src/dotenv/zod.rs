@@ -281,12 +281,12 @@ KEY=
             assert_debug_snapshot!(output);
         }
 
-        // gen_err(&[case("string"), case("number")]);
-        // gen_err(&[case("number"), case("boolean")]);
-        // gen_err(&[case("string"), case("boolean")]);
-        // gen_err(&[case("'a' | 'b'"), case("number")]);
-        //
-        // gen_err(&[case("string"), case("boolean"), case("number")]);
+        gen_err(&[case("string"), case("number")]);
+        gen_err(&[case("number"), case("boolean")]);
+        gen_err(&[case("string"), case("boolean")]);
+        gen_err(&[case("'a' | 'b'"), case("number")]);
+
+        gen_err(&[case("string"), case("boolean"), case("number")]);
 
         // This is not a conflict
         generate(&[case("string"), case("string")]).unwrap();
