@@ -12,13 +12,13 @@ const clientEnvSchemas = {
 const serverEnvSchemas = {
     ...clientEnvSchemas,
     KEY: z.string(),
-    KEY_Value: z.coerce.number(),
-    NAME: z.enum(['val','value']),
-    NAME2: z.enum(['a','b']),
+    KEY_Value: z.coerce.number() /* from "src/dotenv/.env.test2" on line 4 */,
+    NAME: z.enum(['val','value']) /* from "src/dotenv/.env.test2" on line 10 */,
+    NAME2: z.enum(['a','b']) /* from "src/dotenv/.env.test" on line 6 */,
     NAME5: z.string(),
     keys: z.string(),
-    keys2: z.string(),
-    keys2Da: z.enum(['city','townhall']),
+    keys2: z.string() /* from "src/dotenv/.env.test" on line 18 */,
+    keys2Da: z.enum(['city','townhall']) /* from "src/dotenv/.env.test2" on line 7 */,
 }
 
 
