@@ -6,7 +6,7 @@ expression: output
 import z, { ZodTypeAny } from "zod";
 
 const clientEnvSchemas = {
-
+    NEXT_PUBLIC_ENVIRONMENT: z.string(),
 }
 
 const serverEnvSchemas = {
@@ -92,6 +92,7 @@ const processEnv = {
    NAME: process.env.NAME,
    NAME2: process.env.NAME2,
    NAME5: process.env.NAME5,
+   NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT,
    keys: process.env.keys,
    keys2: process.env.keys2,
    keys2Da: process.env.keys2Da,

@@ -45,4 +45,8 @@ expression: vars
         ),
         key: "NAME",
     },
+    Variable {
+        type_hint: None,
+        key: "NEXT_PUBLIC_ENVIRONMENT",
+    },
 ]
