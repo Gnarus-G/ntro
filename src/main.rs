@@ -39,18 +39,23 @@ enum Command {
         #[arg(short)]
         output_dir: Option<PathBuf>,
 
-        /// Generate a typescript module implementing a zod schema for env variables
-        #[arg(short, long)]
-        zod: bool,
-
         /// Wath for changes in the source files and rerun.
         #[arg(short, long)]
         watch: bool,
+
+        /// Generate a typescript module implementing a zod schema for env variables
+        #[arg(short, long)]
+        zod: bool,
 
         /// Update the project's tsconfig.json to include a path alias to the env.parsed.ts module that
         /// holds the zod schemas.
         #[arg(short = 'p', long, requires("zod"))]
         set_ts_config_path_alias: bool,
+
+        /// For node project; will install and use dotenv to pull in the .env files into
+        /// process.env
+        #[arg(long, requires("zod"))]
+        node: bool,
     },
     /// Generate a completions file for a specified shell
     Completion {
@@ -106,16 +111,23 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             zod,
             set_ts_config_path_alias,
             watch,
+            node,
         } => {
             let work = || -> anyhow::Result<()> {
                 if zod {
                     log::info!("starting to generate zod schema for {:?}", source_files);
-                    let content = dotenv::zod::generate_zod_schema(&source_files)?;
+                    let content = dotenv::zod::generate_zod_schema(&source_files, node)?;
                     let output_path = output_dir.clone().unwrap_or_default().join("env.parsed.ts");
 
                     write_output(&output_path, content)?;
 
-                    if let Err(e) = command::npm_install() {
+                    if node {
+                        if let Err(e) = command::npm_install("dotenv") {
+                            log::error!("{e:#}");
+                        }
+                    }
+
+                    if let Err(e) = command::npm_install("zod") {
                         log::error!("{e:#}");
                     }
 

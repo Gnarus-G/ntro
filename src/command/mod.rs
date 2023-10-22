@@ -39,7 +39,7 @@ pub fn prettify<E: AsRef<str>>(content: &[u8], file_extension: E) -> anyhow::Res
     }
 }
 
-pub fn npm_install() -> Result<()> {
+pub fn npm_install(package: &str) -> Result<()> {
     let package_info: Value = File::open("./package.json")
         .context("couldn't open package.json")
         .map(BufReader::new)
@@ -48,13 +48,13 @@ pub fn npm_install() -> Result<()> {
 
     if package_info
         .get("dependencies")
-        .and_then(|deps| deps.get("zod"))
+        .and_then(|deps| deps.get(package))
         .is_some()
     {
         return Ok(());
     }
 
-    log::info!("installing zod...");
+    log::info!("installing {}...", package);
     let out = PackageManager::from_current_project()
         .ok_or(anyhow!("couldn't get package manager from current project"))
         .or(PackageManager::from_global())
@@ -66,7 +66,7 @@ pub fn npm_install() -> Result<()> {
         .and_then(|(exe, arg)| {
             Command::new(exe)
                 .arg(arg)
-                .arg("zod")
+                .arg(package)
                 .output()
                 .with_context(|| {
                     format!("failed to execute installation with package manager: {exe}")

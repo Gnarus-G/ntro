@@ -79,7 +79,7 @@ pub struct Metadata {
     path: Arc<Path>,
 }
 
-pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
+pub fn generate_zod_schema(files: &[PathBuf], import_dotenv: bool) -> Result<String> {
     let text_and_file_names = get_texts(files);
 
     let sources = text_and_file_names.iter().map(|(source, path)| Metadata {
@@ -87,10 +87,13 @@ pub fn generate_zod_schema(files: &[PathBuf]) -> Result<String> {
         path: path.as_path().into(),
     });
 
-    generate_zod_schema_from_texts(sources)
+    generate_zod_schema_from_texts(sources, import_dotenv)
 }
 
-pub fn generate_zod_schema_from_texts(sources: impl Iterator<Item = Metadata>) -> Result<String> {
+pub fn generate_zod_schema_from_texts(
+    sources: impl Iterator<Item = Metadata>,
+    import_dotenv: bool,
+) -> Result<String> {
     let mut map: BTreeMap<String, (Variable, Metadata)> = BTreeMap::new();
 
     let variables = sources.flat_map(|meta| -> Vec<(Variable, Metadata)> {
@@ -129,8 +132,14 @@ pub fn generate_zod_schema_from_texts(sources: impl Iterator<Item = Metadata>) -
 
     let vars = map.into_values().collect::<Vec<_>>();
 
-    let next_public_vars = vars.iter().filter(|&v| v.0.is_public()).collect::<Vec<_>>();
-    let other_vars = vars.iter().filter(|v| !v.0.is_public()).collect::<Vec<_>>();
+    let next_public_vars = vars
+        .iter()
+        .filter(|&v| v.0.is_next_public())
+        .collect::<Vec<_>>();
+    let other_vars = vars
+        .iter()
+        .filter(|v| !v.0.is_next_public())
+        .collect::<Vec<_>>();
 
     let to_field_schema = |(var, meta): &&(Variable, Metadata)| -> String {
         format!(
@@ -177,9 +186,16 @@ pub fn generate_zod_schema_from_texts(sources: impl Iterator<Item = Metadata>) -
         .collect::<Vec<_>>()
         .join("\n");
 
+    let dotenv_import = if import_dotenv {
+        "import dotenv from \"dotenv\";\ndotenv.configDotenv();"
+    } else {
+        ""
+    };
+
     let output = format!(
         r#"
 {js_import_line}
+{dotenv_import}
 
 const clientEnvSchemas = {{
 {}
@@ -266,10 +282,13 @@ mod tests {
 
     #[test]
     fn zod_schema_gen() {
-        let output = generate_zod_schema(&[
-            PathBuf::from("src/dotenv/.env.test"),
-            PathBuf::from("src/dotenv/.env.test2"),
-        ])
+        let output = generate_zod_schema(
+            &[
+                PathBuf::from("src/dotenv/.env.test"),
+                PathBuf::from("src/dotenv/.env.test2"),
+            ],
+            false,
+        )
         .unwrap();
         assert_display_snapshot!(output);
     }
@@ -294,7 +313,7 @@ KEY=
                 }
             });
 
-            generate_zod_schema_from_texts(sources)
+            generate_zod_schema_from_texts(sources, false)
         }
 
         fn gen_err(sources: &[String]) {

@@ -17,7 +17,7 @@ pub struct Variable {
 }
 
 impl Variable {
-    pub fn is_public(&self) -> bool {
+    pub fn is_next_public(&self) -> bool {
         self.key.starts_with("NEXT_PUBLIC_")
     }
 }
