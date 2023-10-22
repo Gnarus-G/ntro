@@ -11,32 +11,32 @@ const processEnv = {};
 
 /* --- MAIN IMPLEMENTATION BELOW --- */
 
-export const clientEnv: z.infer<z.ZodObject<typeof clientEnvSchemas>> =
-  new Proxy({} as any, {
-    get(_, prop: string) {
-      return lookupEnv(prop, clientEnvSchemas, () => {
-        throw new Error(
-          `${prop} is not defined for client side environment variables.`
-        );
-      });
-    },
-  });
+type ClientEnv = z.infer<z.ZodObject<typeof clientEnvSchemas>>;
 
-export const env: z.infer<z.ZodObject<typeof serverEnvSchemas>> = new Proxy(
-  {} as any,
-  {
-    get(_, prop: string) {
-      if (prop.startsWith("NEXT_PUBLIC_")) {
-        return Reflect.get(clientEnv, prop);
-      }
-      return lookupEnv(prop, serverEnvSchemas, () => {
-        throw new Error(
-          `${prop} is not defined for server side environment variables.`
-        );
-      });
-    },
-  }
-);
+export const clientEnv: ClientEnv = new Proxy({} as ClientEnv, {
+  get(_, prop: string) {
+    return lookupEnv(prop, clientEnvSchemas, () => {
+      throw new Error(
+        `${prop} is not defined for client side environment variables.`
+      );
+    });
+  },
+});
+
+type Env = z.infer<z.ZodObject<typeof serverEnvSchemas>>;
+
+export const env: Env = new Proxy({} as Env, {
+  get(_, prop: string) {
+    if (prop.startsWith("NEXT_PUBLIC_")) {
+      return Reflect.get(clientEnv, prop);
+    }
+    return lookupEnv(prop, serverEnvSchemas, () => {
+      throw new Error(
+        `${prop} is not defined for server side environment variables.`
+      );
+    });
+  },
+});
 
 const cache: Record<string, unknown> = {};
 
@@ -51,7 +51,7 @@ function lookupEnv<T extends Record<string, ZodTypeAny>>(
 
   try {
     if (prop in parsers) {
-      const parsed = parsers[prop as keyof typeof parsers].parse(
+      const parsed = parsers[prop as keyof typeof parsers]?.parse(
         processEnv[prop as keyof typeof processEnv],
         { path: [prop] }
       );
