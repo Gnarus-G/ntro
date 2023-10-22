@@ -55,7 +55,7 @@ declare namespace NodeJS {{
                 var
             ))
             .collect::<Vec<_>>()
-            .join("\n")
+            .join("")
     );
 
     Ok(output)
